@@ -1,7 +1,7 @@
 import { type Message } from "ai";
 import { UserCircle, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
-
+import ReactMarkdown from "react-markdown";
 interface ChatMessageProps {
   message: Message;
 }
@@ -30,7 +30,31 @@ export function ChatMessage({ message }: ChatMessageProps) {
         </div>
 
         <div className="prose prose-sm dark:prose-invert max-w-none break-words">
-          {message.content}
+          <ReactMarkdown
+            components={{
+              code({ node, inline, className, children, ...props }) {
+                const match = /language-(\w+)/.exec(className || "");
+                return !inline ? (
+                  <div className="overflow-auto rounded-md bg-slate-800 p-4 my-2">
+                    <pre className="text-sm text-slate-50">
+                      <code className={className} {...props}>
+                        {children}
+                      </code>
+                    </pre>
+                  </div>
+                ) : (
+                  <code
+                    className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded"
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
         </div>
       </div>
     </div>

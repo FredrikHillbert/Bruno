@@ -143,7 +143,7 @@ export function ApiKeyModal({
                     id={`${provider.id}-key`}
                     type={showKeys[provider.id] ? "text" : "password"}
                     placeholder={provider.placeholder}
-                    value={currentKeys[provider.id] || ""}
+                    defaultValue={currentKeys[provider.id] || ""}
                     onChange={(e) =>
                       setApiKeys((prev) => ({
                         ...prev,

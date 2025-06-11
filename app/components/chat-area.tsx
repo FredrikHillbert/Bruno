@@ -89,8 +89,14 @@ export function ChatArea({
         if (firstUserMessage.content.length > 30) title += "...";
       }
 
-      // Save the chat
-      onChatUpdate(allMessages, title, selectedProvider, selectedModel);
+      // Only save and potentially navigate if this is a new chat or we're updating an existing one
+      if (chatId) {
+        // Just update the existing chat without navigation
+        onChatUpdate(allMessages, title, selectedProvider, selectedModel);
+      } else {
+        // This is a new chat, save it and the navigation will happen in handleChatUpdate
+        onChatUpdate(allMessages, title, selectedProvider, selectedModel);
+      }
     },
     onError: (error) => {
       console.error("Chat error:", error);
@@ -159,7 +165,7 @@ export function ChatArea({
   // Render API key or subscription prompt if needed
   if (!hasAccess) {
     return (
-      <div className="flex h-full flex-col items-center justify-center p-4">
+      <div className="flex h-full w-full flex-col items-center justify-center p-4">
         <div className="mb-4 text-center">
           <Key className="mx-auto mb-2 h-12 w-12 text-primary" />
           <h2 className="mb-2 text-2xl font-bold">API Key Required</h2>
@@ -205,7 +211,7 @@ export function ChatArea({
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full w-full flex-col">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
@@ -352,7 +358,9 @@ export function ChatArea({
               value={selectedModel}
               onChange={(e) => setSelectedModel(e.target.value)}
               className="rounded border bg-background px-2 py-1 text-sm"
-              disabled={status === "submitted" || !providerModels[selectedProvider]}
+              disabled={
+                status === "submitted" || !providerModels[selectedProvider]
+              }
             >
               {providerModels[
                 selectedProvider as keyof typeof providerModels

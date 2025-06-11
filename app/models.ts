@@ -13,8 +13,8 @@ export const providerModels: Record<string, ModelOption[]> = {
     { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", description: "Budget friendly" },
   ],
   meta: [
-    { id: "meta-llama/Meta-Llama-3.1-70B-Instruct", name: "Llama 3.1 70B", description: "Most capable" },
-    { id: "meta-llama/Meta-Llama-3.1-8B-Instruct", name: "Llama 3.1 8B", description: "Fast & efficient" },
+    { id: "llama3-70b-8192", name: "Llama 3.1 70B", description: "Most capable" },
+    { id: "llama-3.1-8b-instant", name: "Llama 3.1 8B", description: "Fast & efficient" },
     { id: "meta-llama/llama-4-maverick-17b-128e-instruct", name: "Llama Maverick 17B", description: "Latest model" },
   ],
   anthropic: [

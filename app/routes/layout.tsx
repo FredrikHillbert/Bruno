@@ -3,6 +3,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { v4 as uuidv4 } from "uuid"; // Make sure you have this installed
+
 import {
   Outlet,
   useLoaderData,
@@ -50,7 +52,7 @@ export async function loader({ request }: LoaderFunctionArgs) {
   };
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default function Layout() {
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [selectedProvider, setSelectedProvider] = useState<string>("openai");
   const [chats, setChats] = useState<Chat[]>([]);
@@ -59,7 +61,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const currentChatId = params.id || null;
 
   const handleChatSelect = (chatId: string) => {
-    navigate(`/${chatId}`);
+    navigate(`/chat/${chatId}`);
   };
   const handleNewChat = () => {
     navigate("/"); // Navigate to home without an ID parameter
@@ -88,7 +90,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     }
     // Otherwise create a new chat
     else if (messages.length > 0) {
-      const newChatId = Math.max(0, ...chats.map((chat) => parseInt(chat.id || "0", 10))).toString();
+      const newChatId = uuidv4();
+
       const newChat: Chat = {
         id: newChatId,
         title: title || messages[0].content.substring(0, 30) + "...",
@@ -103,16 +106,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       localStorage.setItem("chat-history", JSON.stringify(updatedChats));
 
       // Navigate to the new chat
-      navigate(`/${newChatId}`);
+      navigate(`/chat/${newChatId}`);
     }
   };
 
   useEffect(() => {
     const savedKeys = localStorage.getItem("api-keys");
+
     if (savedKeys) {
       try {
         const parsedKeys = JSON.parse(savedKeys) as Record<string, string>;
-        console.log("Loading API keys from localStorage:", parsedKeys);
 
         setApiKeys(parsedKeys);
 
@@ -167,8 +170,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           onChatSelect={handleChatSelect}
           onNewChat={handleNewChat}
           isPremium={isUserPremium}
-          chats= {chats}
-          
+          chats={chats}
         />
 
         <SidebarTrigger />
