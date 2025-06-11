@@ -18,7 +18,6 @@ import {
   SidebarMenuItem,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import type { UserPlan } from "@/routes/home"
 
 interface Chat {
   id: string
@@ -30,26 +29,14 @@ interface AppSidebarProps {
   onNewChat: () => void
   currentChatId: string | null
   onChatSelect: (chatId: string) => void
-  userPlan: UserPlan
+  isPremium?: boolean
+  chats: Chat[]
+ 
 }
 
-export function AppSidebar({ onNewChat, currentChatId, onChatSelect, userPlan }: AppSidebarProps) {
-  const [chats, setChats] = useState<Chat[]>([])
+export function AppSidebar({ onNewChat, currentChatId, onChatSelect, isPremium, chats }: AppSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("")
 
-  useEffect(() => {
-    // Only load chat history for premium users
-    if (userPlan.type === "premium") {
-      const savedChats = localStorage.getItem("chat-history")
-      if (savedChats) {
-        const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
-          ...chat,
-          timestamp: new Date(chat.timestamp),
-        }))
-        setChats(parsedChats)
-      }
-    }
-  }, [userPlan.type])
 
   const filteredChats = chats.filter((chat) => chat.title.toLowerCase().includes(searchQuery.toLowerCase()))
 
@@ -78,7 +65,7 @@ export function AppSidebar({ onNewChat, currentChatId, onChatSelect, userPlan }:
             <span className="font-semibold">BRUNO</span>
           </div>
           <div className="flex items-center gap-2">
-            {userPlan.type === "premium" ? (
+            {isPremium? (
               <Badge variant="default" className="text-xs">
                 <Crown className="h-3 w-3 mr-1" />
                 Pro
@@ -101,7 +88,7 @@ export function AppSidebar({ onNewChat, currentChatId, onChatSelect, userPlan }:
         </div>
 
         {/* Search - Only for premium users */}
-        {userPlan.type === "premium" && (
+        
           <SidebarGroup className="py-0">
             <SidebarGroupContent className="relative">
               <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 select-none opacity-50" />
@@ -113,12 +100,12 @@ export function AppSidebar({ onNewChat, currentChatId, onChatSelect, userPlan }:
               />
             </SidebarGroupContent>
           </SidebarGroup>
-        )}
+        
       </SidebarHeader>
 
       <SidebarContent>
         {/* Chat History - Only for premium users */}
-        {userPlan.type === "premium" ? (
+        
           <>
             {groupedChats.today.length > 0 && (
               <SidebarGroup>
@@ -193,17 +180,9 @@ export function AppSidebar({ onNewChat, currentChatId, onChatSelect, userPlan }:
               </SidebarGroup>
             )}
           </>
-        ) : (
-          <SidebarGroup>
-            <SidebarGroupContent>
-              <div className="flex flex-col items-center justify-center p-4 text-center text-sm text-muted-foreground">
-                <Crown className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>Chat history available</p>
-                <p>with Premium plan</p>
-              </div>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+        
+ 
+        
       </SidebarContent>
 
       <SidebarFooter>

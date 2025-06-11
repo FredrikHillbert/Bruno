@@ -1,6 +1,5 @@
 import { llmService } from "@/api/service/llm-service";
 import { userHasActiveSubscription } from "@/api/service/user-service";
-import { prisma } from "@/db.server";
 import { auth } from "@/lib/auth";
 import type { ActionFunctionArgs } from "react-router";
 import { convertToCoreMessages } from "ai"; // No StreamingTextResponse needed here
@@ -10,31 +9,12 @@ export async function action({ request }: ActionFunctionArgs) {
   const session = await auth.api.getSession(request);
   const userId = session?.user.id;
 
-    // Read custom headers
+  // Read custom headers
   const userApiKey = request.headers.get("x-api-key") || undefined;
-  const userPlanType = request.headers.get("x-user-plan"); // "free" or "premium"
 
-  const formData = await request.formData();
-  const prompt = formData.get("prompt") as string;
-  const providerName = (formData.get("providerName") as string) || "openai";
-  let threadId = formData.get("threadId") as string | undefined;
-  const chatHistoryPayload = formData.get("chatHistory") as string | undefined;
-
-  let simpleChatHistory: CoreMessage[] = []; // Will be converted to CoreMessage
-  if (chatHistoryPayload) {
-    try {
-      // Assuming client sends an array of {role: string, content: string}
-      const parsedHistory = JSON.parse(chatHistoryPayload);
-      // Ensure it's in CoreMessage format if not already
-      simpleChatHistory = convertToCoreMessages(parsedHistory);
-    } catch (e) {
-      console.error("Failed to parse chat history from formData:", e);
-    }
-  }
-
-  if (!prompt) {
-    return Response.json({ error: "Prompt is required" }, { status: 400 });
-  }
+  const payload = await request.json();
+  const { id, messages, model, provider } = payload || {};
+  const chatHistory = convertToCoreMessages(messages);
 
   let isAuthenticatedAndSubscribed = false;
   if (userId) {
@@ -57,54 +37,14 @@ export async function action({ request }: ActionFunctionArgs) {
   }
 
   try {
-    let currentThreadIdForSaving = threadId;
-    if (userId) {
-      if (!currentThreadIdForSaving) {
-        const newThread = await prisma.thread.create({
-          data: {
-            users: { connect: [{ id: userId }] },
-            title: prompt.substring(0, 30) || "New Chat",
-          },
-        });
-        currentThreadIdForSaving = newThread.id;
-      } else {
-        // ... (thread existence and update logic remains the same)
-        const threadExists = await prisma.thread.findFirst({
-          where: {
-            id: currentThreadIdForSaving,
-            users: { some: { id: userId } },
-          },
-        });
-        if (!threadExists) {
-          return Response.json(
-            { error: "Thread not found or access denied." },
-            { status: 404 }
-          );
-        }
-        await prisma.thread.update({
-          where: { id: currentThreadIdForSaving },
-          data: { updatedAt: new Date() },
-        });
-      }
-      await prisma.message.create({
-        data: {
-          content: prompt,
-          role: "user",
-          threadId: currentThreadIdForSaving,
-          userId: userId,
-        },
-      });
-    }
-
     const dbSaveOpts =
-      userId && currentThreadIdForSaving
-        ? { userId, threadId: currentThreadIdForSaving, providerName }
-        : undefined;
+      userId && id
+        ? { userId, id, modelName: model }
+        : { userId: undefined, id: undefined, modelName: model };
 
     const streamTextResultOrError = await llmService.sendMessageToProvider(
-      providerName,
-      prompt,
-      simpleChatHistory,
+      provider,
+      chatHistory,
       userApiKey,
       isAuthenticatedAndSubscribed,
       dbSaveOpts // Pass options for DB saving via onFinish
@@ -116,6 +56,7 @@ export async function action({ request }: ActionFunctionArgs) {
       !("textStream" in streamTextResultOrError) &&
       !(streamTextResultOrError instanceof ReadableStream)
     ) {
+      console.log("StreamTextResult error:", streamTextResultOrError);
       return Response.json(
         {
           error: (streamTextResultOrError as any).error,
@@ -124,16 +65,17 @@ export async function action({ request }: ActionFunctionArgs) {
         { status: 400 }
       );
     }
-
     // Type assertion after the check
     const streamTextResult = streamTextResultOrError as StreamTextResult<
       any,
       any
     >;
-
-    // Use the toDataStreamResponse method from the result of streamText
-    // The onFinish callback for DB saving is now handled within the llmService.
-    return streamTextResult.toDataStreamResponse();
+    return streamTextResult.toDataStreamResponse({
+      getErrorMessage(error) {
+        console.error("Error in streamTextResult:", error);
+        return "An error occurred while processing your request.";
+      },
+    });
   } catch (error: any) {
     console.error("Chat API error:", error);
     return Response.json(

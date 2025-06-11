@@ -1,197 +1,101 @@
-"use client";
-
-import { useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Check, Crown, Key, Zap } from "lucide-react";
-import type { UserPlan } from "@/routes/home";
+import { CheckCircle } from "lucide-react";
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubscribe: (plan: UserPlan) => void;
-  currentPlan: UserPlan;
+  onSubscribe: () => void;
+  isPremium: boolean;
 }
 
 export function SubscriptionModal({
   isOpen,
   onClose,
   onSubscribe,
-  currentPlan,
+  isPremium,
 }: SubscriptionModalProps) {
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleFreePlan = () => {
-    onClose();
-    // This will trigger the API key modal
-  };
-
-  const handlePremiumPlan = async () => {
-    setIsLoading(true);
-    // Simulate subscription process
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    const expiresAt = new Date();
-    expiresAt.setMonth(expiresAt.getMonth() + 1);
-
-    onSubscribe({
-      type: "premium",
-      expiresAt,
-    });
-    setIsLoading(false);
+  // This is critical - we need to call onOpenChange when Dialog state changes
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      onClose();
+    }
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-4xl">
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-center text-2xl">
-            Choose Your Plan
+          <DialogTitle>
+            {isPremium ? "Your Premium Subscription" : "Upgrade to Premium"}
           </DialogTitle>
-          <DialogDescription className="text-center">
-            Get started with AI chat - bring your own key or let us handle
-            everything
+          <DialogDescription>
+            {isPremium
+              ? "You already have a premium subscription. Enjoy all the benefits!"
+              : "Get unlimited access to all AI models and cloud synchronization."}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid md:grid-cols-2 gap-6 mt-6">
-          {/* Free Plan */}
-          <Card className="relative">
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Key className="h-5 w-5" />
-                  BYOK Plan
-                </CardTitle>
-                <Badge variant="outline">Free</Badge>
+        {!isPremium ? (
+          <>
+            <div className="space-y-4">
+              <div className="rounded-lg border p-4">
+                <h3 className="text-lg font-medium mb-2">Premium Benefits</h3>
+                <ul className="space-y-2">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
+                    <span>
+                      Use our API keys - no need to bring your own keys
+                    </span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
+                    <span>Cloud sync of your chat history across devices</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle className="h-5 w-5 text-primary mt-0.5" />
+                    <span>
+                      Access to all AI models including GPT-4 and Claude
+                    </span>
+                  </li>
+                </ul>
               </div>
-              <CardDescription>
-                Perfect for developers and power users
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-3xl font-bold">
-                $0
-                <span className="text-sm font-normal text-muted-foreground">
-                  /month
-                </span>
+
+              <div className="rounded-lg border p-4">
+                <h3 className="text-lg font-medium mb-2">Pricing</h3>
+                <p className="text-2xl font-bold">
+                  $9.99 <span className="text-sm font-normal">/month</span>
+                </p>
+                <p className="text-muted-foreground text-sm mt-1">
+                  Cancel anytime
+                </p>
               </div>
-
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Bring your own API keys
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Access to all AI models
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  No monthly limits
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="h-4 w-4 rounded-full border-2 border-muted-foreground/30"></span>
-                  No chat history
-                </li>
-                <li className="flex items-center gap-2 text-muted-foreground">
-                  <span className="h-4 w-4 rounded-full border-2 border-muted-foreground/30"></span>
-                  No cloud sync
-                </li>
-              </ul>
-
-              <Button
-                onClick={handleFreePlan}
-                variant="outline"
-                className="w-full"
-              >
-                Continue with BYOK
-              </Button>
-            </CardContent>
-          </Card>
-
-          {/* Premium Plan */}
-          <Card className="relative border-primary">
-            <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-              <Badge className="bg-primary text-primary-foreground">
-                Most Popular
-              </Badge>
             </div>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Crown className="h-5 w-5 text-yellow-500" />
-                  Premium Plan
-                </CardTitle>
-                <Badge>Best Value</Badge>
-              </div>
-              <CardDescription>
-                Everything included, no setup required
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="text-3xl font-bold">
-                $5
-                <span className="text-sm font-normal text-muted-foreground">
-                  /month
-                </span>
-              </div>
 
-              <ul className="space-y-2 text-sm">
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  All API costs included
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Access to all AI models
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Unlimited chat history
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Cloud sync across devices
-                </li>
-                <li className="flex items-center gap-2">
-                  <Check className="h-4 w-4 text-green-500" />
-                  Priority support
-                </li>
-                <li className="flex items-center gap-2">
-                  <Zap className="h-4 w-4 text-yellow-500" />
-                  <span className="font-medium">No setup required</span>
-                </li>
-              </ul>
-
-              <Button
-                onClick={handlePremiumPlan}
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? "Processing..." : "Start Premium Trial"}
+            <DialogFooter>
+              <Button onClick={onSubscribe} className="w-full">
+                Subscribe Now
               </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="text-center text-sm text-muted-foreground mt-4">
-          You can switch between plans anytime. No long-term commitments.
-        </div>
+            </DialogFooter>
+          </>
+        ) : (
+          <div className="rounded-lg border p-4 text-center">
+            <CheckCircle className="h-12 w-12 text-primary mx-auto mb-2" />
+            <h3 className="text-lg font-medium mb-2">
+              You're a Premium Member
+            </h3>
+            <p className="text-muted-foreground">
+              Enjoy all the benefits of your premium subscription.
+            </p>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -1,217 +1,203 @@
 "use client";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
+import { useState, useEffect, useRef } from "react";
+import { type Message } from "ai";
 import { useChat } from "@ai-sdk/react";
-import {
-  Sparkles,
-  BookOpen,
-  Code,
-  GraduationCap,
-  Send,
-  Paperclip,
-  Key,
-  Crown,
-  Settings,
-} from "lucide-react";
-import type { UserPlan } from "@/routes/home";
-import { ModelRecommendations } from "@/components/model-recommendations";
+import { ChatMessage } from "./chat-message";
+import { ChatMessageLoading } from "./chat-message-loading";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/textarea";
+import { Info, Key, Loader2, Send } from "lucide-react";
+import { providerModels } from "@/models";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
-  userPlan: UserPlan;
+  isUserPremium: boolean;
   onOpenApiKeyModal: () => void;
   onOpenSubscriptionModal: () => void;
   chatId: string | null;
-  onChatIdChange: (chatId: string) => void;
+  initialMessages?: Message[]; // Add support for initialMessages
+  onChatUpdate: (
+    messages: Message[],
+    title: string,
+    provider: string,
+    model: string
+  ) => void;
   selectedProvider: string;
   onProviderChange: (provider: string) => void;
+  selectedModel?: string; // Add support for selectedModel
 }
-
-const providerModels = {
-  openai: [
-    { id: "gpt-4o", name: "GPT-4o", description: "Most capable" },
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", description: "Fast & efficient" },
-    {
-      id: "gpt-3.5-turbo",
-      name: "GPT-3.5 Turbo",
-      description: "Classic choice",
-    },
-  ],
-  anthropic: [
-    {
-      id: "claude-3-5-sonnet-20241022",
-      name: "Claude 3.5 Sonnet",
-      description: "Best overall",
-    },
-    {
-      id: "claude-3-haiku-20240307",
-      name: "Claude 3 Haiku",
-      description: "Fast & affordable",
-    },
-  ],
-  google: [
-    {
-      id: "gemini-1.5-pro",
-      name: "Gemini 1.5 Pro",
-      description: "Large context",
-    },
-    {
-      id: "gemini-1.5-flash",
-      name: "Gemini 1.5 Flash",
-      description: "Fast responses",
-    },
-  ],
-  deepseek: [
-    { id: "deepseek-chat", name: "DeepSeek Chat", description: "Best value" },
-    {
-      id: "deepseek-coder",
-      name: "DeepSeek Coder",
-      description: "Coding focused",
-    },
-  ],
-};
 
 export function ChatArea({
   apiKeys,
-  userPlan,
+  isUserPremium,
   onOpenApiKeyModal,
   onOpenSubscriptionModal,
   chatId,
-  onChatIdChange,
+  initialMessages = [], // Default to empty array
+  onChatUpdate,
   selectedProvider,
   onProviderChange,
+  selectedModel: initialSelectedModel, // Renamed to avoid shadowing
 }: ChatAreaProps) {
-  const [selectedModel, setSelectedModel] = useState("gpt-4o");
+  // Initialize selectedModel with the provided prop or default to the first model for the selected provider
+  const [selectedModel, setSelectedModel] = useState(() => {
+    if (initialSelectedModel) return initialSelectedModel;
+
+    const models =
+      providerModels[selectedProvider as keyof typeof providerModels] || [];
+    return models.length > 0 ? models[0].id : "gpt-4o";
+  });
+
   const [showRecommendations, setShowRecommendations] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const hasAccess = userPlan.type === "premium" || apiKeys[selectedProvider];
+  const hasAccess = isUserPremium || apiKeys[selectedProvider];
 
-  const { messages, input, handleInputChange, handleSubmit, isLoading } =
-    useChat({
-      api: "/api/chat",
-      headers: {
-        "Content-Type": "multipart/form-data", // <--- ADD THIS LINE
-
-        "x-api-key": apiKeys[selectedProvider] || "",
-        "x-user-plan": userPlan.type,
-      },
-      body: {
-        model: selectedModel,
-        provider: selectedProvider,
-      },
-      onFinish: (message) => {
-        if (!chatId && userPlan.type === "premium") {
-          const newChatId = Date.now().toString();
-          onChatIdChange(newChatId);
-
-          // Save chat to history (only for premium users)
-          const chatHistory = JSON.parse(
-            localStorage.getItem("chat-history") || "[]"
-          );
-          const newChat = {
-            id: newChatId,
-            title: input.slice(0, 50) + (input.length > 50 ? "..." : ""),
-            timestamp: new Date().toISOString(),
-          };
-          chatHistory.unshift(newChat);
-          localStorage.setItem(
-            "chat-history",
-            JSON.stringify(chatHistory.slice(0, 50))
-          );
-        }
-      },
-    });
-
-  const sampleQuestions = [
-    "How does AI work?",
-    "Write a Python function to sort a list",
-    "Explain quantum computing simply",
-    "Help me write a professional email",
-  ];
-
-  const categories = [
-    {
-      name: "Create",
-      icon: Sparkles,
-      color: "bg-pink-500/10 text-pink-500 border-pink-500/20",
+  // Configure the chat
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    status,
+    error,
+    setMessages, // Use this to set initial messages
+  } = useChat({
+    api: "/api/chat",
+    id: chatId || undefined,
+    body: {
+      model: selectedModel,
+      provider: selectedProvider,
+      threadId: chatId, // Pass the threadId to the API
     },
-    {
-      name: "Explore",
-      icon: BookOpen,
-      color: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+    headers: {
+      "x-api-key": apiKeys[selectedProvider] || "",
+      "x-user-premium": isUserPremium ? "true" : "false",
     },
-    {
-      name: "Code",
-      icon: Code,
-      color: "bg-green-500/10 text-green-500 border-green-500/20",
-    },
-    {
-      name: "Learn",
-      icon: GraduationCap,
-      color: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-    },
-  ];
+    onFinish: (message) => {
+      // When a message finishes streaming, update the chat
+      const allMessages = [...messages, message];
 
-  const handleQuestionClick = (question: string) => {
-    handleInputChange({ target: { value: question } } as any);
+      // Create a title from the first user message if available
+      let title = "New Chat";
+      const firstUserMessage = allMessages.find((m) => m.role === "user");
+      if (firstUserMessage) {
+        title = firstUserMessage.content.substring(0, 30);
+        if (firstUserMessage.content.length > 30) title += "...";
+      }
+
+      // Save the chat
+      onChatUpdate(allMessages, title, selectedProvider, selectedModel);
+    },
+    onError: (error) => {
+      console.error("Chat error:", error);
+    },
+  });
+
+  // Set initial messages when they change (e.g., when switching chats)
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
+
+  // Update selectedModel when initialSelectedModel or selectedProvider changes
+  useEffect(() => {
+    if (initialSelectedModel) {
+      setSelectedModel(initialSelectedModel);
+    } else {
+      // If initialSelectedModel is not provided, use the first model for the selectedProvider
+      const models =
+        providerModels[selectedProvider as keyof typeof providerModels] || [];
+      if (models.length > 0) {
+        setSelectedModel(models[0].id);
+      }
+    }
+  }, [initialSelectedModel, selectedProvider]);
+
+  // Scroll to bottom of messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Handle form submission
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim()) return;
+
+    handleSubmit(e);
+
+    // Reset textarea height
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
   };
 
-  const handleModelSelect = (provider: string, model: string) => {
-    onProviderChange(provider);
-    setSelectedModel(model);
-    setShowRecommendations(false);
+  // Handle textarea height adjustment
+  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    handleInputChange(e);
+
+    // Auto-resize the textarea
+    const textarea = e.target;
+    textarea.style.height = "auto";
+    textarea.style.height = `${textarea.scrollHeight}px`;
   };
 
+  // Handle key press in textarea
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      formRef.current?.requestSubmit();
+    }
+  };
+
+  // Render API key or subscription prompt if needed
   if (!hasAccess) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="text-center max-w-md">
-          <div className="mb-6">
-            {userPlan.type === "free" ? (
-              <Key className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-            ) : (
-              <Crown className="h-12 w-12 mx-auto mb-4 text-yellow-500" />
-            )}
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Get Started</h2>
-          <p className="text-muted-foreground mb-6">
-            Choose how you'd like to access AI models
+      <div className="flex h-full flex-col items-center justify-center p-4">
+        <div className="mb-4 text-center">
+          <Key className="mx-auto mb-2 h-12 w-12 text-primary" />
+          <h2 className="mb-2 text-2xl font-bold">API Key Required</h2>
+          <p className="mb-4 text-muted-foreground">
+            To use{" "}
+            {selectedProvider.charAt(0).toUpperCase() +
+              selectedProvider.slice(1)}
+            , you need to provide an API key or subscribe to our premium plan.
           </p>
-          <div className="space-y-3">
-            <Button onClick={onOpenSubscriptionModal} className="w-full">
-              <Crown className="h-4 w-4 mr-2" />
-              Subscribe for $5/month
-            </Button>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Button
               onClick={onOpenApiKeyModal}
-              variant="outline"
-              className="w-full"
+              className="flex items-center gap-2"
             >
-              <Key className="h-4 w-4 mr-2" />
-              Bring Your Own Key
+              <Key className="h-4 w-4" />
+              Add Your Own API Key
+            </Button>
+            <Button
+              onClick={onOpenSubscriptionModal}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              Subscribe to Premium
             </Button>
           </div>
         </div>
-      </div>
-    );
-  }
-
-  if (showRecommendations) {
-    return (
-      <div className="flex-1 p-6">
-        <div className="max-w-6xl mx-auto">
-          <ModelRecommendations onSelectModel={handleModelSelect} />
-          <div className="text-center mt-6">
-            <Button
-              variant="outline"
-              onClick={() => setShowRecommendations(false)}
+        <div className="w-full max-w-md">
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-sm font-medium">Select Provider:</span>
+            <select
+              value={selectedProvider}
+              onChange={(e) => onProviderChange(e.target.value)}
+              className="rounded border bg-background px-2 py-1 text-sm"
             >
-              Back to Chat
-            </Button>
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="meta">Meta/Llama</option>
+            </select>
           </div>
         </div>
       </div>
@@ -219,169 +205,167 @@ export function ChatArea({
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      {/* Chat Messages */}
-      <ScrollArea className="flex-1 p-6">
+    <div className="flex h-full flex-col">
+      {/* Messages Area */}
+      <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
-          <div className="max-w-3xl mx-auto">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold mb-6">How can I help you?</h1>
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <h2 className="mb-2 text-2xl font-bold">Start a Conversation</h2>
+            <p className="mb-8 max-w-md text-muted-foreground">
+              Ask a question or request information from the AI.
+            </p>
 
-              <div className="flex flex-wrap gap-3 justify-center mb-8">
-                {categories.map((category) => (
-                  <Badge
-                    key={category.name}
-                    variant="outline"
-                    className={`px-4 py-2 cursor-pointer hover:bg-opacity-20 ${category.color}`}
-                  >
-                    <category.icon className="h-4 w-4 mr-2" />
-                    {category.name}
-                  </Badge>
-                ))}
-              </div>
-
-              <div className="space-y-3 mb-8">
-                {sampleQuestions.map((question, index) => (
-                  <Button
-                    key={index}
-                    variant="ghost"
-                    className="block w-full text-left p-4 h-auto hover:bg-muted/50"
-                    onClick={() => handleQuestionClick(question)}
-                  >
-                    {question}
-                  </Button>
-                ))}
-              </div>
-
-              <Button
-                onClick={() => setShowRecommendations(true)}
-                variant="outline"
-                className="mb-4"
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                Choose the Right Model
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="max-w-3xl mx-auto space-y-6">
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`flex ${
-                  message.role === "user" ? "justify-end" : "justify-start"
-                }`}
-              >
-                <div
-                  className={`max-w-[80%] rounded-lg p-4 ${
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  }`}
+            {showRecommendations && (
+              <div className="grid gap-2 md:grid-cols-2">
+                <Button
+                  variant="outline"
+                  className="justify-start text-left"
+                  onClick={() => {
+                    if (textareaRef.current) {
+                      textareaRef.current.value =
+                        "Explain quantum computing in simple terms";
+                      textareaRef.current.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                      );
+                    }
+                  }}
                 >
-                  <div className="whitespace-pre-wrap">{message.content}</div>
-                </div>
-              </div>
-            ))}
-            {isLoading && (
-              <div className="flex justify-start">
-                <div className="bg-muted rounded-lg p-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-current rounded-full animate-bounce"></div>
-                    <div
-                      className="w-2 h-2 bg-current rounded-full animate-bounce"
-                      style={{ animationDelay: "0.1s" }}
-                    ></div>
-                    <div
-                      className="w-2 h-2 bg-current rounded-full animate-bounce"
-                      style={{ animationDelay: "0.2s" }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-      </ScrollArea>
-
-      {/* Input Area */}
-      <div className="border-t p-4">
-        <div className="max-w-3xl mx-auto">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="relative">
-              <Textarea
-                value={input}
-                onChange={handleInputChange}
-                placeholder="Type your message here..."
-                className="min-h-[60px] pr-12 resize-none"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit(e as any);
-                  }
-                }}
-              />
-              <Button
-                type="submit"
-                size="sm"
-                className="absolute bottom-2 right-2"
-                disabled={!input.trim() || isLoading}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <div className="flex items-center gap-4">
-                <select
-                  value={selectedProvider}
-                  onChange={(e) => onProviderChange(e.target.value)}
-                  className="bg-background border rounded px-2 py-1"
+                  Explain quantum computing in simple terms
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start text-left"
+                  onClick={() => {
+                    if (textareaRef.current) {
+                      textareaRef.current.value =
+                        "Write a poem about artificial intelligence";
+                      textareaRef.current.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                      );
+                    }
+                  }}
                 >
-                  <option value="openai">OpenAI</option>
-                  <option value="anthropic">Anthropic</option>
-                  <option value="google">Google</option>
-                  <option value="deepseek">DeepSeek</option>
-                </select>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="bg-background border rounded px-2 py-1"
+                  Write a poem about artificial intelligence
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start text-left"
+                  onClick={() => {
+                    if (textareaRef.current) {
+                      textareaRef.current.value =
+                        "How do I create a React component?";
+                      textareaRef.current.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                      );
+                    }
+                  }}
                 >
-                  {providerModels[
-                    selectedProvider as keyof typeof providerModels
-                  ]?.map((model) => (
-                    <option key={model.id} value={model.id}>
-                      {model.name} - {model.description}
-                    </option>
-                  ))}
-                </select>
-                <Button variant="ghost" size="sm">
-                  <Paperclip className="h-4 w-4" />
+                  How do I create a React component?
+                </Button>
+                <Button
+                  variant="outline"
+                  className="justify-start text-left"
+                  onClick={() => {
+                    if (textareaRef.current) {
+                      textareaRef.current.value =
+                        "Generate a JavaScript function to sort an array";
+                      textareaRef.current.dispatchEvent(
+                        new Event("input", { bubbles: true })
+                      );
+                    }
+                  }}
+                >
+                  Generate a JavaScript function to sort an array
                 </Button>
               </div>
+            )}
 
-              <div className="flex items-center gap-2">
-                {userPlan.type === "free" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={onOpenApiKeyModal}
-                    className="text-xs"
-                  >
-                    <Key className="h-3 w-3 mr-1" />
-                    API Keys
-                  </Button>
-                )}
-                {userPlan.type === "premium" && (
-                  <Badge variant="outline" className="text-xs">
-                    <Crown className="h-3 w-3 mr-1" />
-                    Premium
-                  </Badge>
-                )}
-              </div>
+            <Button
+              variant="ghost"
+              className="mt-4"
+              onClick={() => setShowRecommendations(!showRecommendations)}
+            >
+              {showRecommendations ? "Hide suggestions" : "Show suggestions"}
+            </Button>
+          </div>
+        ) : (
+          <>
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
+            ))}
+            {status === "submitted" && <ChatMessageLoading />}
+            <div ref={messagesEndRef} />
+          </>
+        )}
+      </div>
+
+      {/* Input Area */}
+      <div className="border-t bg-background p-4">
+        {error && (
+          <div className="mb-2 rounded bg-destructive/10 p-2 text-sm text-destructive">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              Error:{" "}
+              {error.message || "Something went wrong. Please try again."}
             </div>
-          </form>
+          </div>
+        )}
+
+        <form onSubmit={handleFormSubmit} ref={formRef} className="relative">
+          <Textarea
+            ref={textareaRef}
+            value={input}
+            onChange={handleTextareaChange}
+            onKeyDown={handleKeyDown}
+            placeholder="Type your message..."
+            className="min-h-[60px] w-full resize-none pr-12"
+            disabled={status === "submitted"}
+          />
+          <Button
+            type="submit"
+            size="icon"
+            disabled={status === "submitted" || !input.trim()}
+            className="absolute bottom-2 right-2"
+          >
+            {status === "submitted" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </form>
+
+        {/* Model Selection */}
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedProvider}
+              onChange={(e) => onProviderChange(e.target.value)}
+              className="rounded border bg-background px-2 py-1 text-sm"
+              disabled={status === "submitted"}
+            >
+              <option value="openai">OpenAI</option>
+              <option value="anthropic">Anthropic</option>
+              <option value="meta">Meta/Llama</option>
+            </select>
+            <select
+              value={selectedModel}
+              onChange={(e) => setSelectedModel(e.target.value)}
+              className="rounded border bg-background px-2 py-1 text-sm"
+              disabled={status === "submitted" || !providerModels[selectedProvider]}
+            >
+              {providerModels[
+                selectedProvider as keyof typeof providerModels
+              ]?.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name} - {model.description}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {isUserPremium ? "Premium" : "Using your API key"}
+          </div>
         </div>
       </div>
     </div>
