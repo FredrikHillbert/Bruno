@@ -32,7 +32,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         <div className="prose prose-sm dark:prose-invert max-w-none break-words">
           <ReactMarkdown
             components={{
-              code({ node, inline, className, children, ...props }) {
+              code({ node, inline, className, children, ...props }: any) {
                 const match = /language-(\w+)/.exec(className || "");
                 return !inline ? (
                   <div className="overflow-auto rounded-md bg-slate-800 p-4 my-2">

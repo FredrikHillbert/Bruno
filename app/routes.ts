@@ -11,4 +11,5 @@ export default [
     route("/api/chat", "routes/api.chat.ts"),
     route("/chat/:id", "routes/chat.$id.tsx"),
   ]),
+  route("/learn-more", "routes/learn-more.tsx"),
 ] satisfies RouteConfig;

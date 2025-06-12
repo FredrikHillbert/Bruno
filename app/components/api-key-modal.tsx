@@ -89,7 +89,6 @@ export function ApiKeyModal({
     setShowKeys((prev) => ({ ...prev, [provider]: !prev[provider] }));
   };
 
-  console.log("Current API Keys:", currentKeys);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

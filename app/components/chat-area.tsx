@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { type Message } from "ai";
+import { type Message, type UIMessage } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "./chat-message";
 import { ChatMessageLoading } from "./chat-message-loading";
@@ -9,6 +9,7 @@ import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
 import { Info, Key, Loader2, Send } from "lucide-react";
 import { providerModels } from "@/models";
+import { Link } from "react-router";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
@@ -34,11 +35,11 @@ export function ChatArea({
   onOpenApiKeyModal,
   onOpenSubscriptionModal,
   chatId,
-  initialMessages = [], // Default to empty array
+  initialMessages = [],
   onChatUpdate,
   selectedProvider,
   onProviderChange,
-  selectedModel: initialSelectedModel, // Renamed to avoid shadowing
+  selectedModel: initialSelectedModel,
 }: ChatAreaProps) {
   // Initialize selectedModel with the provided prop or default to the first model for the selected provider
   const [selectedModel, setSelectedModel] = useState(() => {
@@ -64,44 +65,48 @@ export function ChatArea({
     handleSubmit,
     status,
     error,
-    setMessages, // Use this to set initial messages
+    setMessages,
   } = useChat({
     api: "/api/chat",
     id: chatId || undefined,
     body: {
       model: selectedModel,
       provider: selectedProvider,
-      threadId: chatId, // Pass the threadId to the API
+      threadId: chatId,
     },
     headers: {
       "x-api-key": apiKeys[selectedProvider] || "",
       "x-user-premium": isUserPremium ? "true" : "false",
     },
     onFinish: (message) => {
+      const userMessage: Message = {
+        role: "user",
+        content: input.trim(),
+        createdAt: new Date(),
+        id: Date.now().toString(),
+      };
+
       // When a message finishes streaming, update the chat
-      const allMessages = [...messages, message];
+      const allMessages = [...messages, userMessage, message];
 
-      // Create a title from the first user message if available
-      let title = "New Chat";
-      const firstUserMessage = allMessages.find((m) => m.role === "user");
-      if (firstUserMessage) {
-        title = firstUserMessage.content.substring(0, 30);
-        if (firstUserMessage.content.length > 30) title += "...";
-      }
-
-      // Only save and potentially navigate if this is a new chat or we're updating an existing one
-      if (chatId) {
-        // Just update the existing chat without navigation
-        onChatUpdate(allMessages, title, selectedProvider, selectedModel);
-      } else {
-        // This is a new chat, save it and the navigation will happen in handleChatUpdate
-        onChatUpdate(allMessages, title, selectedProvider, selectedModel);
-      }
+      updateChatHistory(allMessages);
     },
     onError: (error) => {
       console.error("Chat error:", error);
     },
   });
+
+  const updateChatHistory = (allMessages: Message[]) => {
+    // Create a title from the first user message if available
+    let title = "New Chat";
+    const firstUserMessage = allMessages.find((m) => m.role === "user");
+    if (firstUserMessage) {
+      title = firstUserMessage.content.substring(0, 30);
+      if (firstUserMessage.content.length > 30) title += "...";
+    }
+
+    onChatUpdate(allMessages, title, selectedProvider, selectedModel);
+  };
 
   // Set initial messages when they change (e.g., when switching chats)
   useEffect(() => {
@@ -109,20 +114,6 @@ export function ChatArea({
       setMessages(initialMessages);
     }
   }, [initialMessages, setMessages]);
-
-  // Update selectedModel when initialSelectedModel or selectedProvider changes
-  useEffect(() => {
-    if (initialSelectedModel) {
-      setSelectedModel(initialSelectedModel);
-    } else {
-      // If initialSelectedModel is not provided, use the first model for the selectedProvider
-      const models =
-        providerModels[selectedProvider as keyof typeof providerModels] || [];
-      if (models.length > 0) {
-        setSelectedModel(models[0].id);
-      }
-    }
-  }, [initialSelectedModel, selectedProvider]);
 
   // Scroll to bottom of messages
   useEffect(() => {
@@ -165,48 +156,98 @@ export function ChatArea({
   // Render API key or subscription prompt if needed
   if (!hasAccess) {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center p-4">
-        <div className="mb-4 text-center">
-          <Key className="mx-auto mb-2 h-12 w-12 text-primary" />
-          <h2 className="mb-2 text-2xl font-bold">API Key Required</h2>
-          <p className="mb-4 text-muted-foreground">
-            To use{" "}
-            {selectedProvider.charAt(0).toUpperCase() +
-              selectedProvider.slice(1)}
-            , you need to provide an API key or subscribe to our premium plan.
+<div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8">
+      <div className="w-full max-w-2xl space-y-6 rounded-xl border bg-card p-6 shadow-sm">
+        {/* Header */}
+        <div className="text-center">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+            <Key className="h-8 w-8 text-primary" />
+          </div>
+          <h2 className="mb-2 text-2xl font-bold">Access Required</h2>
+          <p className="text-muted-foreground">
+            Choose how you want to access AI models from{" "}
+            <span className="font-medium text-foreground">
+              {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)}
+            </span>
           </p>
-          <div className="flex flex-col gap-2 sm:flex-row">
+        </div>
+
+        {/* Provider Selection */}
+        <div className="space-y-2">
+          <label htmlFor="provider-select" className="text-sm font-medium">
+            Select AI Provider:
+          </label>
+          <select
+            id="provider-select"
+            value={selectedProvider}
+            onChange={(e) => onProviderChange(e.target.value)}
+            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+          >
+            <option value="openai">OpenAI (ChatGPT)</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="meta">Meta (Llama)</option>
+            <option value="google">Google (Gemini)</option>
+            <option value="deepseek">DeepSeek</option>
+            <option value="mistral">Mistral</option>
+          </select>
+        </div>
+
+        {/* Options with divider */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-card px-2 text-muted-foreground">Access Options</span>
+          </div>
+        </div>
+
+        {/* Option Cards */}
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* BYOK Option */}
+          <div className="flex flex-col space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4 transition-colors hover:bg-primary/10">
+            <h3 className="font-medium">Use Your Own API Key</h3>
+            <p className="flex-1 text-xs text-muted-foreground">
+              Provide your own API key from {selectedProvider.charAt(0).toUpperCase() + 
+              selectedProvider.slice(1)}. Your key remains securely stored in your browser.
+            </p>
             <Button
               onClick={onOpenApiKeyModal}
-              className="flex items-center gap-2"
+              className="mt-2 w-full"
             >
-              <Key className="h-4 w-4" />
-              Add Your Own API Key
+              <Key className="mr-2 h-4 w-4" />
+              Add API Key
             </Button>
+          </div>
+
+          {/* Premium Option */}
+          <div className="flex flex-col space-y-2 rounded-lg border border-primary p-4 shadow-sm">
+            <div className="flex items-center space-x-2">
+              <h3 className="font-medium">Premium Access</h3>
+              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+                Recommended
+              </span>
+            </div>
+            <p className="flex-1 text-xs text-muted-foreground">
+              Subscribe to our premium plan for seamless access to all AI providers with no need for API keys.
+            </p>
             <Button
               onClick={onOpenSubscriptionModal}
-              variant="outline"
-              className="flex items-center gap-2"
+              variant="default"
+              className="mt-2 w-full"
             >
               Subscribe to Premium
             </Button>
           </div>
         </div>
-        <div className="w-full max-w-md">
-          <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm font-medium">Select Provider:</span>
-            <select
-              value={selectedProvider}
-              onChange={(e) => onProviderChange(e.target.value)}
-              className="rounded border bg-background px-2 py-1 text-sm"
-            >
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="meta">Meta/Llama</option>
-            </select>
-          </div>
-        </div>
+
+        {/* Help Text */}
+        <p className="text-center text-xs text-muted-foreground">
+          Need help? <Link to="/learn-more" className="text-primary hover:underline">Learn more</Link> about 
+          API keys and subscription options.
+        </p>
       </div>
+    </div>
     );
   }
 
@@ -352,7 +393,10 @@ export function ChatArea({
             >
               <option value="openai">OpenAI</option>
               <option value="anthropic">Anthropic</option>
-              <option value="meta">Meta/Llama</option>
+              <option value="meta">Meta</option>
+              <option value="google">Google</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="mistral">Mistral</option>
             </select>
             <select
               value={selectedModel}

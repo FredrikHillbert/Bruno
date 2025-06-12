@@ -61,14 +61,9 @@ class OpenAIProvider implements LLMProvider {
       };
     }
 
-    console.log(
-      "OpenAIProvider.sendMessage called with chatHistory:",
-      chatHistory
-    );
-
+  
     try {
       const modelNameToUse = options?.modelName || "gpt-3.5-turbo"; // Default fallback
-      console.log(`Using OpenAI model: ${modelNameToUse}`);
 
       // Create instance with the appropriate API key
       const openai = createOpenAI({
@@ -78,7 +73,6 @@ class OpenAIProvider implements LLMProvider {
 
       // Get the specific model instance
       const model = openai.chat(modelNameToUse);
-      console.log("OpenAI model instance:", model);
 
       const result = streamText({
         model: model,
@@ -96,9 +90,6 @@ class OpenAIProvider implements LLMProvider {
                   userId: options.userId,
                 },
               });
-              console.log(
-                "Assistant message saved to DB via onFinish (OpenAI)."
-              );
             } catch (dbError) {
               console.error(
                 "Failed to save assistant message to DB via onFinish:",
@@ -160,7 +151,6 @@ class MetaProvider implements LLMProvider {
       // Default to Llama 4
       const modelNameToUse =
         options?.modelName || "meta-llama/llama-guard-4-12b";
-      console.log(`Using Meta model: ${modelNameToUse}`);
 
       // Create instance with the appropriate API key via Groq's API
       const meta = createOpenAI({
@@ -170,7 +160,6 @@ class MetaProvider implements LLMProvider {
 
       // Get the specific model instance
       const model = meta.chat(modelNameToUse);
-      console.log("Meta model instance:", model);
 
       const result = await streamText({
         model: model,
@@ -189,7 +178,6 @@ class MetaProvider implements LLMProvider {
                   userId: options.userId,
                 },
               });
-              console.log("Assistant message saved to DB via onFinish (Meta).");
             } catch (dbError) {
               console.error(
                 "Failed to save assistant message to DB via onFinish:",
@@ -247,14 +235,10 @@ class AnthropicProvider implements LLMProvider {
       };
     }
 
-    console.log(
-      "AnthropicProvider.sendMessage called with chatHistory:",
-      chatHistory
-    );
+
 
     try {
       const modelNameToUse = options?.modelName || "claude-3-5-haiku-20241022";
-      console.log(`Using Anthropic model: ${modelNameToUse}`);
 
       // Create instance with the appropriate API key
       const anthropic = createAnthropic({
@@ -273,14 +257,11 @@ class AnthropicProvider implements LLMProvider {
                   content: text,
                   role: "assistant",
                   provider: options.providerName || this.name,
-
                   threadId: options.threadId,
                   userId: options.userId,
                 },
               });
-              console.log(
-                "Assistant message saved to DB via onFinish (Anthropic)."
-              );
+      
             } catch (dbError) {
               console.error(
                 "Failed to save assistant message to DB via onFinish:",
@@ -351,9 +332,6 @@ class LLMService {
     // If user is a paying subscriber and no user key provided, use our key
     if (!userApiKey && isAuthenticatedAndSubscribed) {
       effectiveApiKey = this.providerApiKeyMap[normalizedProviderName];
-      console.log(
-        `Using our ${normalizedProviderName} API key for subscribed user`
-      );
     }
     // If not subscribed and no user key, return an error
     else if (!userApiKey && !isAuthenticatedAndSubscribed) {
@@ -362,10 +340,6 @@ class LLMService {
         provider: normalizedProviderName,
         error: `API key required for ${normalizedProviderName}. Please provide your own key or subscribe to our service.`,
       };
-    }
-    // User provided their own key
-    else {
-      console.log(`Using user-provided ${normalizedProviderName} API key`);
     }
 
     if (!effectiveApiKey) {
@@ -402,7 +376,6 @@ class LLMService {
     const modelName =
       dbSaveOptions?.modelName || this.defaultModels[normalizedProviderName];
 
-      console.log("dbSaveOptions:", dbSaveOptions);
 
     return providerInstance.sendMessage(chatHistory, {
       ...dbSaveOptions,

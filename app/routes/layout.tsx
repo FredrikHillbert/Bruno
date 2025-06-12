@@ -11,14 +11,16 @@ import {
   useNavigate,
   useOutletContext,
   useParams,
+  
   type LoaderFunctionArgs,
 } from "react-router";
+import type { Message, UIMessage } from "ai";
 
 export interface Chat {
   id: string;
   title: string;
   timestamp: Date;
-  messages: any[]; // Store actual messages
+  messages: Message[]; // Store actual messages
   provider: string; // Track which provider was used
   model: string; // Track which model was used
 }
@@ -32,7 +34,7 @@ export interface LayoutContextType {
   currentChatId: string | null;
   isUserPremium: boolean;
   handleChatUpdate: (
-    messages: any[],
+    messages: Message[],
     title: string,
     provider: string,
     model: string
@@ -53,12 +55,56 @@ export async function loader({ request }: LoaderFunctionArgs) {
 }
 
 export default function Layout() {
+  const { isUserPremium } = useLoaderData<typeof loader>();
+
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
-  const [selectedProvider, setSelectedProvider] = useState<string>("openai");
+  const [selectedProvider, setSelectedProvider] = useState<string>("");
   const [chats, setChats] = useState<Chat[]>([]);
   const navigate = useNavigate();
   const params = useParams();
   const currentChatId = params.id || null;
+
+  console.log("current provider" + selectedProvider);
+
+  // Load data from localStorage when the component mounts (client-side only)
+  useEffect(() => {
+    // Load API keys
+    try {
+      const savedKeys = localStorage.getItem("api-keys");
+      if (savedKeys) {
+        const parsedKeys = JSON.parse(savedKeys) as Record<string, string>;
+        setApiKeys(parsedKeys);
+
+        // Set default provider
+        let provider = "openai"; // Default provider
+        if (!parsedKeys["openai"]) {
+          const availableProviders = Object.keys(parsedKeys).filter((p) =>
+            parsedKeys[p]?.trim()
+          );
+          if (availableProviders.length > 0) {
+            provider = availableProviders[0];
+          }
+        }
+        setSelectedProvider(provider);
+      }
+    } catch (error) {
+      console.error("Failed to load API keys:", error);
+    }
+
+    // Load chat history
+    try {
+      const savedChats = localStorage.getItem("chat-history");
+      if (savedChats) {
+        const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
+          ...chat,
+          timestamp: new Date(chat.timestamp),
+        }));
+        setChats(parsedChats);
+      }
+    } catch (error) {
+      console.error("Failed to load chat history:", error);
+    }
+  }, [isUserPremium]);
 
   const handleChatSelect = (chatId: string) => {
     navigate(`/chat/${chatId}`);
@@ -66,12 +112,13 @@ export default function Layout() {
   const handleNewChat = () => {
     navigate("/"); // Navigate to home without an ID parameter
   };
-  const { isUserPremium } = useLoaderData<typeof loader>();
 
-  // Handle saving a new message to chat history
+  // Handle saving a new message to chat history - in localStorage for non-premium users
+  // For premium users, this will be replaced with a database call
   const handleChatUpdate = (
-    messages: any[],
+    messages: Message[],
     title: string,
+
     provider: string,
     model: string
   ) => {
@@ -109,46 +156,6 @@ export default function Layout() {
       navigate(`/chat/${newChatId}`);
     }
   };
-
-  useEffect(() => {
-    const savedKeys = localStorage.getItem("api-keys");
-
-    if (savedKeys) {
-      try {
-        const parsedKeys = JSON.parse(savedKeys) as Record<string, string>;
-
-        setApiKeys(parsedKeys);
-
-        // If user has no access with the default provider but has keys for other providers,
-        // automatically select the first provider they have a key for
-        if (!isUserPremium && !parsedKeys["openai"]) {
-          const availableProviders = Object.keys(parsedKeys).filter(
-            (provider) => parsedKeys[provider]?.trim()
-          );
-
-          if (availableProviders.length > 0) {
-            setSelectedProvider(availableProviders[0]);
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse saved API keys:", e);
-      }
-    }
-
-    // Load chat history from localStorage
-    const savedChats = localStorage.getItem("chat-history");
-    if (savedChats) {
-      try {
-        const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
-          ...chat,
-          timestamp: new Date(chat.timestamp),
-        }));
-        setChats(parsedChats);
-      } catch (e) {
-        console.error("Failed to parse chat history:", e);
-      }
-    }
-  }, [isUserPremium]);
 
   // Create a context object with all the state and functions child routes need
   const context: LayoutContextType = {
