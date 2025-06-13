@@ -10,10 +10,19 @@ import { Textarea } from "./ui/textarea";
 import { Info, Key, Loader2, Send } from "lucide-react";
 import { providerModels } from "@/models";
 import { Link } from "react-router";
+import type { User } from "@/routes/layout";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
-  isUserPremium: boolean;
+  user: User | null; // User object with subscription status
   onOpenApiKeyModal: () => void;
   onOpenSubscriptionModal: () => void;
   chatId: string | null;
@@ -31,7 +40,7 @@ interface ChatAreaProps {
 
 export function ChatArea({
   apiKeys,
-  isUserPremium,
+  user,
   onOpenApiKeyModal,
   onOpenSubscriptionModal,
   chatId,
@@ -55,8 +64,7 @@ export function ChatArea({
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const hasAccess = isUserPremium || apiKeys[selectedProvider];
-
+  const hasAccess = user?.isSubscribed || apiKeys[selectedProvider];
   // Configure the chat
   const {
     messages,
@@ -76,7 +84,6 @@ export function ChatArea({
     },
     headers: {
       "x-api-key": apiKeys[selectedProvider] || "",
-      "x-user-premium": isUserPremium ? "true" : "false",
     },
     onFinish: (message) => {
       const userMessage: Message = {
@@ -156,109 +163,121 @@ export function ChatArea({
   // Render API key or subscription prompt if needed
   if (!hasAccess) {
     return (
-<div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8">
-      <div className="w-full max-w-2xl space-y-6 rounded-xl border bg-card p-6 shadow-sm">
-        {/* Header */}
-        <div className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
-            <Key className="h-8 w-8 text-primary" />
-          </div>
-          <h2 className="mb-2 text-2xl font-bold">Access Required</h2>
-          <p className="text-muted-foreground">
-            Choose how you want to access AI models from{" "}
-            <span className="font-medium text-foreground">
-              {selectedProvider.charAt(0).toUpperCase() + selectedProvider.slice(1)}
-            </span>
-          </p>
-        </div>
-
-        {/* Provider Selection */}
-        <div className="space-y-2">
-          <label htmlFor="provider-select" className="text-sm font-medium">
-            Select AI Provider:
-          </label>
-          <select
-            id="provider-select"
-            value={selectedProvider}
-            onChange={(e) => onProviderChange(e.target.value)}
-            className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-          >
-            <option value="openai">OpenAI (ChatGPT)</option>
-            <option value="anthropic">Anthropic (Claude)</option>
-            <option value="meta">Meta (Llama)</option>
-            <option value="google">Google (Gemini)</option>
-            <option value="deepseek">DeepSeek</option>
-            <option value="mistral">Mistral</option>
-          </select>
-        </div>
-
-        {/* Options with divider */}
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-card px-2 text-muted-foreground">Access Options</span>
-          </div>
-        </div>
-
-        {/* Option Cards */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* BYOK Option */}
-          <div className="flex flex-col space-y-2 rounded-lg border border-primary/30 bg-primary/5 p-4 transition-colors hover:bg-primary/10">
-            <h3 className="font-medium">Use Your Own API Key</h3>
-            <p className="flex-1 text-xs text-muted-foreground">
-              Provide your own API key from {selectedProvider.charAt(0).toUpperCase() + 
-              selectedProvider.slice(1)}. Your key remains securely stored in your browser.
+      <div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8 bg-zinc-900">
+        <div className="w-full max-w-2xl space-y-6 rounded-xl border border-zinc-800 bg-black p-6 shadow-md">
+          {/* Header */}
+          <div className="text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-900/30">
+              <Key className="h-8 w-8 text-red-500" />
+            </div>
+            <h2 className="mb-2 text-2xl font-bold text-white">
+              Access Required
+            </h2>
+            <p className="text-zinc-400">
+              Choose how you want to access AI models from{" "}
+              <span className="font-medium text-white">
+                {selectedProvider.charAt(0).toUpperCase() +
+                  selectedProvider.slice(1)}
+              </span>
             </p>
-            <Button
-              onClick={onOpenApiKeyModal}
-              className="mt-2 w-full"
-            >
-              <Key className="mr-2 h-4 w-4" />
-              Add API Key
-            </Button>
           </div>
 
-          {/* Premium Option */}
-          <div className="flex flex-col space-y-2 rounded-lg border border-primary p-4 shadow-sm">
-            <div className="flex items-center space-x-2">
-              <h3 className="font-medium">Premium Access</h3>
-              <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
-                Recommended
+          {/* Provider Selection */}
+          <div className="space-y-2">
+            <Select onValueChange={onProviderChange} value={selectedProvider}>
+              <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+                <SelectValue placeholder="Provider" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                <SelectGroup>
+                  <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
+                  <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                  <SelectItem value="meta">Meta (Llama)</SelectItem>
+                  <SelectItem value="google">Google (Gemini)</SelectItem>
+                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+                  <SelectItem value="mistral">Mistral</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Options with divider */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-zinc-800" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-black px-2 text-zinc-500">
+                Access Options
               </span>
             </div>
-            <p className="flex-1 text-xs text-muted-foreground">
-              Subscribe to our premium plan for seamless access to all AI providers with no need for API keys.
-            </p>
-            <Button
-              onClick={onOpenSubscriptionModal}
-              variant="default"
-              className="mt-2 w-full"
-            >
-              Subscribe to Premium
-            </Button>
           </div>
-        </div>
 
-        {/* Help Text */}
-        <p className="text-center text-xs text-muted-foreground">
-          Need help? <Link to="/learn-more" className="text-primary hover:underline">Learn more</Link> about 
-          API keys and subscription options.
-        </p>
+          {/* Option Cards */}
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* BYOK Option */}
+            <div className="flex flex-col space-y-2 rounded-lg border border-red-900/30 bg-red-950/20 p-4 transition-colors hover:bg-red-950/30">
+              <h3 className="font-medium text-white">Use Your Own API Key</h3>
+              <p className="flex-1 text-xs text-zinc-400">
+                Provide your own API key from{" "}
+                {selectedProvider.charAt(0).toUpperCase() +
+                  selectedProvider.slice(1)}
+                . Your key remains securely stored in your browser.
+              </p>
+              <Button
+                onClick={onOpenApiKeyModal}
+                className="mt-2 w-full bg-red-900 hover:bg-red-800 text-white border-none"
+              >
+                <Key className="mr-2 h-4 w-4" />
+                Add API Key
+              </Button>
+            </div>
+
+            {/* Premium Option */}
+            <div className="flex flex-col space-y-2 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+              <div className="flex items-center space-x-2">
+                <h3 className="font-medium text-white">Premium Access</h3>
+                <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
+                  Recommended
+                </span>
+              </div>
+              <p className="flex-1 text-xs text-zinc-400">
+                Subscribe to our premium plan for seamless access to all AI
+                providers with no need for API keys.
+              </p>
+              <Button
+                onClick={onOpenSubscriptionModal}
+                variant="default"
+                className="mt-2 w-full bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white border-none"
+              >
+                Subscribe to Premium
+              </Button>
+            </div>
+          </div>
+
+          {/* Help Text */}
+          <p className="text-center text-xs text-zinc-500">
+            Need help?{" "}
+            <Link to="/learn-more" className="text-green-500 hover:underline">
+              Learn more
+            </Link>{" "}
+            about API keys and subscription options.
+          </p>
+        </div>
       </div>
-    </div>
     );
   }
 
   return (
-    <div className="flex h-full w-full flex-col">
+    <div className="flex h-full w-full flex-col bg-zinc-900">
       {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4">
         {messages.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center text-center">
-            <h2 className="mb-2 text-2xl font-bold">Start a Conversation</h2>
-            <p className="mb-8 max-w-md text-muted-foreground">
+            <h2 className="mb-2 text-2xl font-bold text-white">
+              Start a Conversation
+            </h2>
+            <p className="mb-8 max-w-md text-zinc-400">
               Ask a question or request information from the AI.
             </p>
 
@@ -266,7 +285,7 @@ export function ChatArea({
               <div className="grid gap-2 md:grid-cols-2">
                 <Button
                   variant="outline"
-                  className="justify-start text-left"
+                  className="justify-start text-left border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                   onClick={() => {
                     if (textareaRef.current) {
                       textareaRef.current.value =
@@ -281,7 +300,7 @@ export function ChatArea({
                 </Button>
                 <Button
                   variant="outline"
-                  className="justify-start text-left"
+                  className="justify-start text-left border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                   onClick={() => {
                     if (textareaRef.current) {
                       textareaRef.current.value =
@@ -296,7 +315,7 @@ export function ChatArea({
                 </Button>
                 <Button
                   variant="outline"
-                  className="justify-start text-left"
+                  className="justify-start text-left border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                   onClick={() => {
                     if (textareaRef.current) {
                       textareaRef.current.value =
@@ -311,7 +330,7 @@ export function ChatArea({
                 </Button>
                 <Button
                   variant="outline"
-                  className="justify-start text-left"
+                  className="justify-start text-left border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:text-white"
                   onClick={() => {
                     if (textareaRef.current) {
                       textareaRef.current.value =
@@ -329,7 +348,7 @@ export function ChatArea({
 
             <Button
               variant="ghost"
-              className="mt-4"
+              className="mt-4 text-zinc-400 hover:text-white hover:bg-zinc-800"
               onClick={() => setShowRecommendations(!showRecommendations)}
             >
               {showRecommendations ? "Hide suggestions" : "Show suggestions"}
@@ -338,7 +357,11 @@ export function ChatArea({
         ) : (
           <>
             {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
+              <ChatMessage
+                key={index}
+                message={message}
+                userImage={user?.image}
+              />
             ))}
             {status === "submitted" && <ChatMessageLoading />}
             <div ref={messagesEndRef} />
@@ -347,9 +370,9 @@ export function ChatArea({
       </div>
 
       {/* Input Area */}
-      <div className="border-t bg-background p-4">
+      <div className="border-t border-zinc-800 bg-black p-4">
         {error && (
-          <div className="mb-2 rounded bg-destructive/10 p-2 text-sm text-destructive">
+          <div className="mb-2 rounded bg-red-950/30 p-2 text-sm text-red-400">
             <div className="flex items-center gap-2">
               <Info className="h-4 w-4" />
               Error:{" "}
@@ -365,14 +388,14 @@ export function ChatArea({
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
-            className="min-h-[60px] w-full resize-none pr-12"
+            className="min-h-[60px] w-full resize-none pr-12 bg-zinc-900 border-zinc-700 placeholder:text-zinc-500 text-white focus-visible:ring-green-800"
             disabled={status === "submitted"}
           />
           <Button
             type="submit"
             size="icon"
             disabled={status === "submitted" || !input.trim()}
-            className="absolute bottom-2 right-2"
+            className="absolute bottom-2 right-2 bg-green-800 hover:bg-green-700 text-white"
           >
             {status === "submitted" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -385,38 +408,56 @@ export function ChatArea({
         {/* Model Selection */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <select
-              value={selectedProvider}
-              onChange={(e) => onProviderChange(e.target.value)}
-              className="rounded border bg-background px-2 py-1 text-sm"
-              disabled={status === "submitted"}
-            >
-              <option value="openai">OpenAI</option>
-              <option value="anthropic">Anthropic</option>
-              <option value="meta">Meta</option>
-              <option value="google">Google</option>
-              <option value="deepseek">DeepSeek</option>
-              <option value="mistral">Mistral</option>
-            </select>
-            <select
+            <Select onValueChange={onProviderChange} value={selectedProvider}>
+              <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+                <SelectValue placeholder="Provider" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                <SelectGroup>
+                  <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
+                  <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
+                  <SelectItem value="meta">Meta (Llama)</SelectItem>
+                  <SelectItem value="google">Google (Gemini)</SelectItem>
+                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+                  <SelectItem value="mistral">Mistral</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <Select
               value={selectedModel}
-              onChange={(e) => setSelectedModel(e.target.value)}
-              className="rounded border bg-background px-2 py-1 text-sm"
+              onValueChange={setSelectedModel}
               disabled={
                 status === "submitted" || !providerModels[selectedProvider]
               }
             >
-              {providerModels[
-                selectedProvider as keyof typeof providerModels
-              ]?.map((model) => (
-                <option key={model.id} value={model.id}>
-                  {model.name} - {model.description}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="w-[250px] bg-zinc-900 border-zinc-700 text-white">
+                <SelectValue placeholder="Model" />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
+                <SelectGroup>
+                  {providerModels[
+                    selectedProvider as keyof typeof providerModels
+                  ]?.map((model) => (
+                    <SelectItem key={model.id} value={model.id}>
+                      {model.name} - {model.description}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
           </div>
-          <div className="text-xs text-muted-foreground">
-            {isUserPremium ? "Premium" : "Using your API key"}
+          <div className="text-xs text-zinc-500">
+            {user?.isSubscribed ? (
+              <span className="flex items-center text-green-500">
+                <div className="mr-1 h-2 w-2 rounded-full bg-green-500"></div>
+                Premium
+              </span>
+            ) : (
+              <span className="flex items-center  text-green-500">
+                <div className="mr-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+                Using your API key
+              </span>
+            )}
           </div>
         </div>
       </div>

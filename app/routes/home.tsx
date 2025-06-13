@@ -2,21 +2,8 @@ import { useState } from "react";
 import { ChatArea } from "@/components/chat-area";
 import { ApiKeyModal } from "@/components/api-key-modal";
 import { SubscriptionModal } from "@/components/subscription-modal";
-import { type LoaderFunctionArgs } from "react-router";
-import { auth } from "@/lib/auth";
-import { userHasActiveSubscription } from "@/api/service/user-service";
 import { useLayoutContext, type Chat } from "./layout";
-
-export async function loader({ request }: LoaderFunctionArgs) {
-  const session = await auth.api.getSession(request);
-  const userHaveActiveSubscription = session?.user.id
-    ? await userHasActiveSubscription(session.user.id)
-    : false;
-
-  return {
-    isUserPremium: userHaveActiveSubscription,
-  };
-}
+import { providerModels } from "@/models";
 
 export default function Home() {
   const {
@@ -26,12 +13,13 @@ export default function Home() {
     setSelectedProvider,
     chats,
     currentChatId,
-    isUserPremium,
+    user,
     handleChatUpdate,
   } = useLayoutContext();
 
   const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+
   // Find the current chat if we have an ID
   const currentChat = currentChatId
     ? chats.find((chat) => chat.id === currentChatId)
@@ -44,6 +32,21 @@ export default function Home() {
     setShowApiKeyModal(false);
   };
 
+  // Determine the initial model based on the current chat or provider
+  const getInitialModel = () => {
+    // If we have a current chat with a model, use that
+    if (currentChat?.model) {
+      return currentChat.model;
+    }
+
+    // Otherwise, use the first available model for the selected provider
+    const models =
+      providerModels[selectedProvider as keyof typeof providerModels] || [];
+    return models.length > 0 ? models[0].id : undefined;
+  };
+
+  const initialModel = getInitialModel();
+
   const handleSubscription = () => {
     setShowSubscriptionModal(false);
   };
@@ -52,7 +55,7 @@ export default function Home() {
     <div className="flex h-screen w-full bg-background">
       <ChatArea
         apiKeys={apiKeys}
-        isUserPremium={isUserPremium}
+        user={user}
         onOpenApiKeyModal={() => setShowApiKeyModal(true)}
         onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
         chatId={currentChatId}
@@ -60,7 +63,7 @@ export default function Home() {
         onChatUpdate={handleChatUpdate}
         selectedProvider={selectedProvider}
         onProviderChange={setSelectedProvider}
-        selectedModel={currentChat?.model}
+        selectedModel={initialModel}
       />
       <ApiKeyModal
         isOpen={showApiKeyModal}
@@ -72,7 +75,7 @@ export default function Home() {
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
         onSubscribe={handleSubscription}
-        isPremium={isUserPremium}
+        user={user}
       />
     </div>
   );

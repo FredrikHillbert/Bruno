@@ -8,19 +8,20 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { CheckCircle } from "lucide-react";
+import type { User } from "@/routes/layout";
 
 interface SubscriptionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubscribe: () => void;
-  isPremium: boolean;
+  user: User | null;
 }
 
 export function SubscriptionModal({
   isOpen,
   onClose,
   onSubscribe,
-  isPremium,
+  user,
 }: SubscriptionModalProps) {
   // This is critical - we need to call onOpenChange when Dialog state changes
   const handleOpenChange = (open: boolean) => {
@@ -34,16 +35,16 @@ export function SubscriptionModal({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {isPremium ? "Your Premium Subscription" : "Upgrade to Premium"}
+            {user?.isSubscribed ? "Your Premium Subscription" : "Upgrade to Premium"}
           </DialogTitle>
           <DialogDescription>
-            {isPremium
+            {user?.isSubscribed
               ? "You already have a premium subscription. Enjoy all the benefits!"
               : "Get unlimited access to all AI models and cloud synchronization."}
           </DialogDescription>
         </DialogHeader>
 
-        {!isPremium ? (
+        {!user?.isSubscribed ? (
           <>
             <div className="space-y-4">
               <div className="rounded-lg border p-4">

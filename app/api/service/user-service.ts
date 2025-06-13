@@ -1,12 +1,32 @@
 import { prisma } from "@/db.server";
 
-export async function userHasActiveSubscription(userId: string): Promise<boolean> {
-  // This is where you'd check your database or payment provider (e.g., Stripe)
-  // For now, let's assume a field on the User model or a related Subscription model
+export async function getUser(userId: string) {
   const user = await prisma.user.findUnique({
     where: { id: userId },
-    // include: { subscriptions: { where: { status: 'active' } } } // Example
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      isSubscribed: true,
+      image: true,
+      createdAt: true,
+      threads: {
+        select: {
+          id: true,
+          title: true,
+
+          messages: {
+            select: {
+              id: true,
+              content: true,
+              role: true,
+              createdAt: true,
+            },
+          },
+        },
+      },
+    },
   });
-  // return user?.subscriptions?.length > 0 || user?.isPayingSubscriber || false;
-  return user?.isSubscribed || false; // Simplified: assumes a boolean field `isPayingSubscriber`
+
+  return user;
 }

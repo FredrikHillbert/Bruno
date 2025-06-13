@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { ExternalLink, Key, ArrowLeft, Check, AlertCircle, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function LearnMore() {
   return (
@@ -295,7 +295,7 @@ export default function LearnMore() {
       <div className="mb-10">
         <h2 className="text-xl font-semibold mb-4">Frequently Asked Questions</h2>
         
-        {/* <Accordion type="single" collapsible className="w-full">
+        <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="item-1">
             <AccordionTrigger>Are my API keys safe?</AccordionTrigger>
             <AccordionContent>
@@ -345,7 +345,7 @@ export default function LearnMore() {
               </p>
             </AccordionContent>
           </AccordionItem>
-        </Accordion> */}
+        </Accordion>
       </div>
       
       <div className="flex justify-between items-center pt-6 border-t">

@@ -4,30 +4,33 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 interface ChatMessageProps {
   message: Message;
+  userImage: string | null | undefined;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, userImage }: ChatMessageProps) {
   const isUser = message.role === "user";
 
   return (
     <div
       className={cn(
         "mb-4 flex items-start gap-3 rounded-lg p-4",
-        isUser ? "bg-accent/50" : "bg-background"
+        isUser ? "bg-gray-700/50 text-white" : "text-white"
       )}
     >
-      <div className="flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border bg-background shadow">
+      <div className="flex h-8 w-8 shrink-0 select-none  items-center justify-center rounded-md  shadow">
         {isUser ? (
-          <UserCircle className="h-5 w-5" />
+          userImage ? (
+            <img src={userImage} className="rounded-2xl" />
+          ) : (
+            <UserCircle className="h-5 w-5 text-white" />
+          )
         ) : (
-          <Bot className="h-5 w-5 text-primary" />
+          <Bot className="h-5 w-5 text-white" />
         )}
       </div>
 
       <div className="flex-1 space-y-2 overflow-hidden">
-        <div className="text-sm font-medium">
-          {isUser ? "You" : "AI Assistant"}
-        </div>
+        <div className="text-sm font-medium">{isUser ? "You" : "AI"}</div>
 
         <div className="prose prose-sm dark:prose-invert max-w-none break-words">
           <ReactMarkdown

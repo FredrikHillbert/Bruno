@@ -1,20 +1,18 @@
-import { userHasActiveSubscription } from "@/api/service/user-service";
+import { getUser } from "@/api/service/user-service";
 import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { auth } from "@/lib/auth";
 import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid"; // Make sure you have this installed
-
 import {
   Outlet,
   useLoaderData,
   useNavigate,
   useOutletContext,
   useParams,
-  
   type LoaderFunctionArgs,
 } from "react-router";
-import type { Message, UIMessage } from "ai";
+import type { Message } from "ai";
 
 export interface Chat {
   id: string;
@@ -25,6 +23,27 @@ export interface Chat {
   model: string; // Track which model was used
 }
 
+export interface User {
+  id: string;
+  createdAt: Date;
+  email: string;
+  name: string | null;
+  image: string | null;
+  isSubscribed: boolean;
+  threads:
+    | {
+        id: string;
+        messages: {
+          id: string;
+          createdAt: Date;
+          content: string;
+          role: string;
+        }[];
+        title: string;
+      }[]
+    | null;
+}
+
 export interface LayoutContextType {
   apiKeys: Record<string, string>;
   setApiKeys: (keys: Record<string, string>) => void;
@@ -32,7 +51,7 @@ export interface LayoutContextType {
   setSelectedProvider: (provider: string) => void;
   chats: Chat[];
   currentChatId: string | null;
-  isUserPremium: boolean;
+  user: (User & {}) | null;
   handleChatUpdate: (
     messages: Message[],
     title: string,
@@ -46,16 +65,20 @@ export function useLayoutContext() {
 }
 export async function loader({ request }: LoaderFunctionArgs) {
   const session = await auth.api.getSession(request);
-  const userHaveActiveSubscription = session?.user.id
-    ? await userHasActiveSubscription(session.user.id)
-    : false;
+
+  const user = await getUser(session?.user.id || "");
+  if (!user) {
+    return {
+      user: null,
+    };
+  }
   return {
-    isUserPremium: userHaveActiveSubscription,
+    user: user,
   };
 }
 
 export default function Layout() {
-  const { isUserPremium } = useLoaderData<typeof loader>();
+  const { user } = useLoaderData<typeof loader>();
 
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [selectedProvider, setSelectedProvider] = useState<string>("");
@@ -64,7 +87,6 @@ export default function Layout() {
   const params = useParams();
   const currentChatId = params.id || null;
 
-  console.log("current provider" + selectedProvider);
 
   // Load data from localStorage when the component mounts (client-side only)
   useEffect(() => {
@@ -104,7 +126,7 @@ export default function Layout() {
     } catch (error) {
       console.error("Failed to load chat history:", error);
     }
-  }, [isUserPremium]);
+  }, [user]);
 
   const handleChatSelect = (chatId: string) => {
     navigate(`/chat/${chatId}`);
@@ -165,7 +187,7 @@ export default function Layout() {
     setSelectedProvider,
     chats,
     currentChatId,
-    isUserPremium,
+    user: user,
     handleChatUpdate,
   };
 
@@ -176,7 +198,7 @@ export default function Layout() {
           currentChatId={currentChatId}
           onChatSelect={handleChatSelect}
           onNewChat={handleNewChat}
-          isPremium={isUserPremium}
+          user={user}
           chats={chats}
         />
 

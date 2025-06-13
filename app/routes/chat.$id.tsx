@@ -54,7 +54,7 @@ export default function ChatPage() {
     setApiKeys,
     selectedProvider,
     setSelectedProvider,
-    isUserPremium,
+    user,
     handleChatUpdate,
   } = useLayoutContext();
 
@@ -80,13 +80,13 @@ export default function ChatPage() {
     <div className="flex h-full flex-col bg-background">
       <ChatArea
         apiKeys={apiKeys}
-        isUserPremium={isUserPremium}
+        user={user}
         onOpenApiKeyModal={() => setShowApiKeyModal(true)}
         onOpenSubscriptionModal={() => setShowSubscriptionModal(true)}
         chatId={chatId || null}
         initialMessages={chat.messages || []}
         onChatUpdate={handleChatUpdate}
-        selectedProvider={chat.provider || selectedProvider}
+        selectedProvider={selectedProvider}
         onProviderChange={setSelectedProvider}
         selectedModel={chat.model}
       />
@@ -102,7 +102,7 @@ export default function ChatPage() {
         isOpen={showSubscriptionModal}
         onClose={() => setShowSubscriptionModal(false)}
         onSubscribe={handleSubscription}
-        isPremium={isUserPremium}
+        user={user}
       />
     </div>
   );

@@ -1,13 +1,13 @@
 import { llmService } from "@/api/service/llm-service";
-import { userHasActiveSubscription } from "@/api/service/user-service";
 import { auth } from "@/lib/auth";
 import type { ActionFunctionArgs } from "react-router";
 import { convertToCoreMessages } from "ai"; // No StreamingTextResponse needed here
 import type { CoreMessage, StreamTextResult } from "ai"; // Import StreamTextResult
+import { getUser } from "@/api/service/user-service";
 
 export async function action({ request }: ActionFunctionArgs) {
   const session = await auth.api.getSession(request);
-  const userId = session?.user.id;
+  const user = await getUser(session?.user.id || "");
 
   // Read custom headers
   const userApiKey = request.headers.get("x-api-key") || undefined;
@@ -16,11 +16,9 @@ export async function action({ request }: ActionFunctionArgs) {
   const { id, messages, model, provider } = payload || {};
   const chatHistory = convertToCoreMessages(messages);
 
-  let isAuthenticatedAndSubscribed = false;
-  if (userId) {
+  if (user) {
     if (!userApiKey) {
-      isAuthenticatedAndSubscribed = await userHasActiveSubscription(userId);
-      if (!isAuthenticatedAndSubscribed) {
+      if (!user.isSubscribed) {
         return Response.json(
           {
             error: "Active subscription required or provide your own API key.",
@@ -38,15 +36,15 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const dbSaveOpts =
-      userId && id
-        ? { userId, id, modelName: model }
+      user?.isSubscribed && id
+        ? { userId: user.id, id, modelName: model }
         : { userId: undefined, id: undefined, modelName: model };
 
     const streamTextResultOrError = await llmService.sendMessageToProvider(
       provider,
       chatHistory,
       userApiKey,
-      isAuthenticatedAndSubscribed,
+      user?.isSubscribed || false,
       dbSaveOpts // Pass options for DB saving via onFinish
     );
 
