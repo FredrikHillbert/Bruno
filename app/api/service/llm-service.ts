@@ -61,7 +61,6 @@ class OpenAIProvider implements LLMProvider {
       };
     }
 
-  
     try {
       const modelNameToUse = options?.modelName || "gpt-3.5-turbo"; // Default fallback
 
@@ -235,8 +234,6 @@ class AnthropicProvider implements LLMProvider {
       };
     }
 
-
-
     try {
       const modelNameToUse = options?.modelName || "claude-3-5-haiku-20241022";
 
@@ -261,7 +258,6 @@ class AnthropicProvider implements LLMProvider {
                   userId: options.userId,
                 },
               });
-      
             } catch (dbError) {
               console.error(
                 "Failed to save assistant message to DB via onFinish:",
@@ -288,12 +284,12 @@ class LLMService {
   // Map provider names to their respective environment variables for API keys
   private readonly providerApiKeyMap: Record<string, string> = {
     openai: process.env.OPENAI_API_KEY || "",
-    meta: process.env.GROQ_API_KEY || "", 
+    meta: process.env.GROQ_API_KEY || "",
     anthropic: process.env.ANTHROPIC_API_KEY || "",
   };
 
   // Supported providers and models
-  private readonly supportedProviders = ["openai", "meta", "anthropic"];
+  private readonly supportedProviders = ["openai", "meta", "anthropic", "google", "deepseek", "mistral", "qwen"];
 
   // Default models for each provider if not specified
   private readonly defaultModels: Record<string, string> = {
@@ -360,6 +356,18 @@ class LLMService {
       case "meta":
         providerInstance = new MetaProvider(effectiveApiKey);
         break;
+      case "google":
+        providerInstance = new MetaProvider(effectiveApiKey);
+        break;
+      case "deepseek":
+        providerInstance = new MetaProvider(effectiveApiKey);
+        break;
+      case "mistral":
+        providerInstance = new MetaProvider(effectiveApiKey);
+        break;
+      case "qwen":
+        providerInstance = new MetaProvider(effectiveApiKey);
+        break;
       case "anthropic":
         providerInstance = new AnthropicProvider(effectiveApiKey);
         break;
@@ -375,7 +383,6 @@ class LLMService {
     // 4. Call the provider's sendMessage method with the chatHistory and options
     const modelName =
       dbSaveOptions?.modelName || this.defaultModels[normalizedProviderName];
-
 
     return providerInstance.sendMessage(chatHistory, {
       ...dbSaveOptions,
@@ -407,6 +414,14 @@ class LLMService {
           "meta-llama/Llama-3-8B-Instruct",
           "meta-llama/Llama-3-70B-Instruct",
         ];
+      case "google":
+        return ["gemma2-9b-it"];
+      case "deepseek":
+        return ["deepseek-r1-distill-llama-70b"];
+      case "mistral":
+        return ["mistral-saba-24b	"];
+      case "qwen":
+        return ["qwen-qwq-32b"];
       case "anthropic":
         return [
           "claude-3-opus-20240229",

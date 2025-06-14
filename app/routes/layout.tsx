@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { v4 as uuidv4 } from "uuid"; // Make sure you have this installed
 import {
   Outlet,
+  useFetcher,
   useLoaderData,
   useNavigate,
   useOutletContext,
@@ -86,9 +87,12 @@ export default function Layout() {
   const navigate = useNavigate();
   const params = useParams();
   const currentChatId = params.id || null;
+  const fetcher = useFetcher();
 
-
-  // Load data from localStorage when the component mounts (client-side only)
+  // Load data from localStorage when the component mounts - only if user is not logged in
+  // For logged-in users, this will be replaced with a database call
+  // This is to ensure we have a consistent experience for both logged-in and non-logged-in users
+  // Non-premium users will use localStorage, premium users will use a database so that they get synced across devices
   useEffect(() => {
     // Load API keys
     try {
@@ -113,19 +117,86 @@ export default function Layout() {
       console.error("Failed to load API keys:", error);
     }
 
-    // Load chat history
-    try {
-      const savedChats = localStorage.getItem("chat-history");
-      if (savedChats) {
+    const savedChats = localStorage.getItem("chat-history");
+
+    if (!savedChats) {
+      return;
+    }
+
+    // Load chat history from localStorage
+    // Only load if the user is not logged in
+    if (!user) {
+      try {
         const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
           ...chat,
           timestamp: new Date(chat.timestamp),
         }));
         setChats(parsedChats);
+        return;
+      } catch (error) {
+        console.error("Failed to load chat history:", error);
+        return;
       }
-    } catch (error) {
-      console.error("Failed to load chat history:", error);
     }
+    // For premium users, we load threads from the user object AND from the localstorage if available
+    // This is to ensure that if they have chats saved locally, we still show them
+
+    if (!user.threads || user.threads.length === 0) {
+      const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
+        ...chat,
+        timestamp: new Date(chat.timestamp),
+      }));
+      setChats(parsedChats);
+      return;
+    }
+    // Parse threads from the user object
+    const parsedChats = user.threads.map((thread: any) => ({
+      id: thread.id,
+      title: thread.title,
+      timestamp: new Date(thread.messages[0].createdAt),
+      messages: thread.messages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        role: msg.role,
+        createdAt: new Date(msg.createdAt),
+      })),
+      provider: "openai", // Default provider for premium users
+      model: "gpt-4", // Default model for premium users
+    }));
+
+    // If the user has threads in localStorage, we can merge them with the fetched threads
+    const localChats = localStorage.getItem("chat-history");
+    let threads: Chat[] = [];
+    if (localChats) {
+      threads = JSON.parse(localChats).map((chat: any) => ({
+        ...chat,
+        timestamp: new Date(chat.timestamp),
+      }));
+    }
+    // Combine both threads and local chats, ensuring no duplicates
+    const combinedChats = [
+      ...threads,
+      ...user.threads.map((thread: any) => ({
+        id: thread.id,
+        title: thread.title,
+        timestamp: new Date(thread.messages[0].createdAt),
+        messages: thread.messages.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content,
+          role: msg.role,
+          createdAt: new Date(msg.createdAt),
+        })),
+        provider: "openai", // Default provider for premium users
+        model: "gpt-4", // Default model for premium users
+      })),
+    ];
+    // Remove duplicates based on chat ID
+    const uniqueChats = Array.from(
+      new Map(combinedChats.map((chat) => [chat.id, chat])).values()
+    );
+    // Sort by timestamp descending
+    uniqueChats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    setChats(uniqueChats);
   }, [user]);
 
   const handleChatSelect = (chatId: string) => {
@@ -140,7 +211,6 @@ export default function Layout() {
   const handleChatUpdate = (
     messages: Message[],
     title: string,
-
     provider: string,
     model: string
   ) => {
@@ -155,7 +225,26 @@ export default function Layout() {
       );
 
       setChats(updatedChats);
-      localStorage.setItem("chat-history", JSON.stringify(updatedChats));
+      if (!user?.isSubscribed) {
+        localStorage.setItem("chat-history", JSON.stringify(updatedChats));
+        return;
+      }
+      // For premium users, we need to update the thread in the database
+      fetcher.load("/api/auth/threads"); // Load threads from the API
+
+      const payload = JSON.stringify({
+        id: currentChatId,
+        title: title,
+        messages: messages,
+        provider: provider,
+        model: model,
+      });
+
+      fetcher.submit(payload, {
+        method: "post",
+        action: "/api/auth/threads",
+        encType: "application/json",
+      });
     }
     // Otherwise create a new chat
     else if (messages.length > 0) {
@@ -172,6 +261,27 @@ export default function Layout() {
 
       const updatedChats = [newChat, ...chats];
       setChats(updatedChats);
+
+      if (!user?.isSubscribed) {
+        localStorage.setItem("chat-history", JSON.stringify(updatedChats));
+      } else {
+        // For premium users, we need to save the new chat to the database
+        fetcher.load("/api/auth/threads"); // Load threads from the API
+
+        const payload = JSON.stringify({
+          id: newChatId,
+          title: newChat.title,
+          messages: newChat.messages,
+          provider: newChat.provider,
+          model: newChat.model,
+        });
+
+        fetcher.submit(payload, {
+          method: "post",
+          action: "/api/auth/threads",
+          encType: "application/json",
+        });
+      }
       localStorage.setItem("chat-history", JSON.stringify(updatedChats));
 
       // Navigate to the new chat
@@ -193,7 +303,7 @@ export default function Layout() {
 
   return (
     <SidebarProvider>
-      <div className="flex h-screen w-screen overflow-hidden">
+      <div className="flex h-screen w-screen overflow-hidden bg-black text-white">
         <AppSidebar
           currentChatId={currentChatId}
           onChatSelect={handleChatSelect}

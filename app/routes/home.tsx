@@ -47,6 +47,8 @@ export default function Home() {
 
   const initialModel = getInitialModel();
 
+  console.log("Initial model:", initialModel);
+
   const handleSubscription = () => {
     setShowSubscriptionModal(false);
   };

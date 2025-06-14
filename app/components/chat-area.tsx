@@ -1,7 +1,5 @@
-"use client";
-
-import { useState, useEffect, useRef } from "react";
-import { type Message, type UIMessage } from "ai";
+import { useState, useEffect, useRef, useMemo } from "react";
+import { type Message } from "ai";
 import { useChat } from "@ai-sdk/react";
 import { ChatMessage } from "./chat-message";
 import { ChatMessageLoading } from "./chat-message-loading";
@@ -19,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { toast } from "sonner";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
@@ -63,9 +62,32 @@ export function ChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [rateLimitInfo, setRateLimitInfo] = useState<{
+    remaining?: number;
+    reset?: string;
+    isLoading: boolean;
+  }>({
+    isLoading: false,
+  });
 
-  const hasAccess = user?.isSubscribed || apiKeys[selectedProvider];
-  // Configure the chat
+  const hasAccess = useMemo(() => {
+    // User has subscription - can access all models
+    if (user?.isSubscribed) return true;
+
+    // User has API key for the selected provider - can access that provider
+    if (apiKeys[selectedProvider]) return true;
+
+    // Authenticated users can access free models
+    if (
+      user &&
+      ["meta", "google", "deepseek", "mistral"].includes(selectedProvider)
+    )
+      return true;
+
+    // Otherwise, no access
+    return false;
+  }, [user, selectedProvider, apiKeys]);
+
   const {
     messages,
     input,
@@ -129,6 +151,39 @@ export function ChatArea({
     }
   }, [messages]);
 
+  useEffect(() => {
+    if (error && error.status === 429) {
+      // This is a rate limit error
+      const resetTime = error.reset ? new Date(error.reset) : new Date();
+      resetTime.setHours(0, 0, 0, 0);
+      resetTime.setDate(resetTime.getDate() + 1);
+
+      const resetTimeString = resetTime.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">{error.message}</span>
+          {error.cooldownSeconds ? (
+            <span className="text-sm">
+              Try again in {error.cooldownSeconds} seconds
+            </span>
+          ) : (
+            <span className="text-sm">Limit resets at {resetTimeString}</span>
+          )}
+        </div>
+      );
+
+      setRateLimitInfo({
+        remaining: 0,
+        reset: resetTimeString,
+        isLoading: false,
+      });
+    }
+  }, [error]);
+
   // Handle form submission
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -173,26 +228,79 @@ export function ChatArea({
             <h2 className="mb-2 text-2xl font-bold text-white">
               Access Required
             </h2>
-            <p className="text-zinc-400">
-              Choose how you want to access AI models from{" "}
-              <span className="font-medium text-white">
-                {selectedProvider.charAt(0).toUpperCase() +
-                  selectedProvider.slice(1)}
-              </span>
-            </p>
+
+            {user ? (
+              // User is logged in but trying to access a paid model
+              <p className="text-zinc-400">
+                You need additional access to use models from{" "}
+                <span className="font-medium text-white">
+                  {selectedProvider.charAt(0).toUpperCase() +
+                    selectedProvider.slice(1)}
+                </span>
+                .{" "}
+                <Link
+                  to="#"
+                  onClick={() => onProviderChange("meta")}
+                  className="text-green-500 hover:underline"
+                >
+                  Switch to Llama models
+                </Link>{" "}
+                for free access.
+              </p>
+            ) : (
+              // User is not logged in
+              <p className="text-zinc-400">
+                Choose how you want to access AI models from{" "}
+                <span className="font-medium text-white">
+                  {selectedProvider.charAt(0).toUpperCase() +
+                    selectedProvider.slice(1)}
+                </span>
+              </p>
+            )}
           </div>
 
           {/* Provider Selection */}
           <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="provider-select"
+                className="text-sm font-medium text-zinc-400"
+              >
+                Select AI Provider:
+              </label>
+
+              {/* Add badges to show which providers are free */}
+              <div className="flex gap-2">
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-800/30 text-green-400 border border-green-800/50">
+                  Llama: Free with account
+                </span>
+              </div>
+            </div>
+
             <Select onValueChange={onProviderChange} value={selectedProvider}>
-              <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+              <SelectTrigger className="w-full bg-zinc-900 border-zinc-700 text-white">
                 <SelectValue placeholder="Provider" />
               </SelectTrigger>
               <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
                 <SelectGroup>
-                  <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
-                  <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="meta">Meta (Llama)</SelectItem>
+                  <SelectItem
+                    value="openai"
+                    className="flex items-center justify-between"
+                  >
+                    <span>OpenAI (ChatGPT)</span>
+                  </SelectItem>
+                  <SelectItem value="anthropic">
+                    <span>Anthropic (Claude)</span>
+                  </SelectItem>
+                  <SelectItem
+                    value="meta"
+                    className="flex items-center justify-between"
+                  >
+                    <span>Meta (Llama)</span>
+                    {user && (
+                      <span className="text-xs ml-2 text-green-500">Free</span>
+                    )}
+                  </SelectItem>
                   <SelectItem value="google">Google (Gemini)</SelectItem>
                   <SelectItem value="deepseek">DeepSeek</SelectItem>
                   <SelectItem value="mistral">Mistral</SelectItem>
@@ -217,7 +325,14 @@ export function ChatArea({
           <div className="grid gap-4 md:grid-cols-2">
             {/* BYOK Option */}
             <div className="flex flex-col space-y-2 rounded-lg border border-red-900/30 bg-red-950/20 p-4 transition-colors hover:bg-red-950/30">
-              <h3 className="font-medium text-white">Use Your Own API Key</h3>
+              <div className="flex items-center space-x-2">
+                <h3 className="font-medium text-white">
+                  Use Your Own API Keys
+                </h3>
+                <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
+                  No Limits
+                </span>
+              </div>
               <p className="flex-1 text-xs text-zinc-400">
                 Provide your own API key from{" "}
                 {selectedProvider.charAt(0).toUpperCase() +
@@ -238,7 +353,7 @@ export function ChatArea({
               <div className="flex items-center space-x-2">
                 <h3 className="font-medium text-white">Premium Access</h3>
                 <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
-                  Recommended
+                  All Models
                 </span>
               </div>
               <p className="flex-1 text-xs text-zinc-400">
@@ -253,6 +368,30 @@ export function ChatArea({
                 Subscribe to Premium
               </Button>
             </div>
+
+            {/* Conditional "Create Account" option - only show if user is not logged in */}
+            {!user && (
+              <div className="flex flex-col space-y-2 col-span-2 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-medium text-white">
+                    Create a free account
+                  </h3>
+                  <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
+                    Free Access to Llama
+                  </span>
+                </div>
+                <p className="flex-1 text-xs text-zinc-400">
+                  Create a free account to save your chat history and get access
+                  to Meta's Llama models for free. No credit card required.
+                </p>
+                <Link
+                  to={"/sign-up"}
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive mt-2 w-full bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white border-none"
+                >
+                  Create Free Account
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Help Text */}
@@ -416,10 +555,32 @@ export function ChatArea({
                 <SelectGroup>
                   <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
                   <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="meta">Meta (Llama)</SelectItem>
-                  <SelectItem value="google">Google (Gemini)</SelectItem>
-                  <SelectItem value="deepseek">DeepSeek</SelectItem>
-                  <SelectItem value="mistral">Mistral</SelectItem>
+                  <SelectItem value="meta">
+                    {" "}
+                    <span>Meta (Llama)</span>
+                    {user && (
+                      <span className="text-xs ml-2 text-green-500">Free</span>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="google">
+                    {" "}
+                    <span>Google (Gemini)</span>
+                    {user && (
+                      <span className="text-xs ml-2 text-green-500">Free</span>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="deepseek">
+                    <span>DeepSeek</span>
+                    {user && (
+                      <span className="text-xs ml-2 text-green-500">Free</span>
+                    )}
+                  </SelectItem>
+                  <SelectItem value="mistral">
+                    <span>Mistral</span>
+                    {user && (
+                      <span className="text-xs ml-2 text-green-500">Free</span>
+                    )}
+                  </SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -452,13 +613,34 @@ export function ChatArea({
                 <div className="mr-1 h-2 w-2 rounded-full bg-green-500"></div>
                 Premium
               </span>
+            ) : user && ["meta", "google", "deepseek", "mistral"].includes(selectedProvider) ? (
+              <span className="flex items-center text-blue-400">
+                <div className="mr-1 h-2 w-2 rounded-full bg-blue-400 animate-pulse"></div>
+                Free Access
+              </span>
             ) : (
-              <span className="flex items-center  text-green-500">
-                <div className="mr-1 h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+              <span className="flex items-center text-red-500">
+                <div className="mr-1 h-2 w-2 rounded-full bg-red-500"></div>
                 Using your API key
               </span>
             )}
           </div>
+          {/* Rate limit info */}
+          {user &&
+            !rateLimitInfo.isLoading &&
+            rateLimitInfo.remaining !== undefined && (
+              <div className="text-xs text-white">
+                {rateLimitInfo.remaining > 0 ? (
+                  <span className="text-white">
+                    {rateLimitInfo.remaining} requests remaining today
+                  </span>
+                ) : (
+                  <span>
+                    Daily limit reached. Resets at {rateLimitInfo.reset}
+                  </span>
+                )}
+              </div>
+            )}
         </div>
       </div>
     </div>

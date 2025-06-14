@@ -14,4 +14,5 @@ export default [
   route("/learn-more", "routes/learn-more.tsx"),
   route("/sign-up", "routes/sign-up.tsx"),
   route("/api/auth/*", "routes/api.auth.$.ts"),
+  route("/api/auth/threads", "routes/api.auth.threads.ts"),
 ] satisfies RouteConfig;
