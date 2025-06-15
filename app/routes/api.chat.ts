@@ -1,8 +1,8 @@
 import { llmService } from "@/api/service/llm-service";
 import { auth } from "@/lib/auth";
 import type { ActionFunctionArgs } from "react-router";
-import { convertToCoreMessages } from "ai"; // No StreamingTextResponse needed here
-import type { CoreMessage, StreamTextResult } from "ai"; // Import StreamTextResult
+import { convertToCoreMessages } from "ai";
+import type { CoreMessage, StreamTextResult } from "ai"; 
 import { getUser } from "@/api/service/user-service";
 import { rateLimitService } from "@/api/service/rate-limit-service";
 import { estimateTokenCount } from "@/lib/rate-limits";
@@ -17,13 +17,15 @@ export async function action({ request }: ActionFunctionArgs) {
   const payload = await request.json();
   const { id, messages, model, provider } = payload || {};
 
+  console.log("hej", provider)
+
   // Check if user has access to the requested model
   const hasAccess =
     // Subscribed users can access all models
     user?.isSubscribed ||
     // Users with API keys can access the model
     (userApiKey && userApiKey.length > 0) ||
-    // Authenticated users can access Llama models for free
+    // Authenticated users can access some models for free
     (user && ["meta", "google", "deepseek", "mistral"].includes(provider));
 
   if (!hasAccess) {
@@ -73,9 +75,11 @@ export async function action({ request }: ActionFunctionArgs) {
 
   try {
     const dbSaveOpts =
-      user?.isSubscribed && id
+      user && id
         ? { userId: user.id, id, modelName: model }
         : { userId: undefined, id: undefined, modelName: model };
+
+    console.log("hasaccess", hasAccess);
 
     const streamTextResultOrError = await llmService.sendMessageToProvider(
       provider,

@@ -14,6 +14,8 @@ import {
   SelectContent,
   SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
@@ -52,7 +54,6 @@ export function ChatArea({
   // Initialize selectedModel with the provided prop or default to the first model for the selected provider
   const [selectedModel, setSelectedModel] = useState(() => {
     if (initialSelectedModel) return initialSelectedModel;
-
     const models =
       providerModels[selectedProvider as keyof typeof providerModels] || [];
     return models.length > 0 ? models[0].id : "gpt-4o";
@@ -69,6 +70,8 @@ export function ChatArea({
   }>({
     isLoading: false,
   });
+  const [customModelId, setCustomModelId] = useState("");
+  const [showCustomModelInput, setShowCustomModelInput] = useState(false);
 
   const hasAccess = useMemo(() => {
     // User has subscription - can access all models
@@ -87,6 +90,27 @@ export function ChatArea({
     // Otherwise, no access
     return false;
   }, [user, selectedProvider, apiKeys]);
+
+  const getDisplayModelName = (modelId: string): string => {
+    // If it's a standard model from our list, return its friendly name
+    if (selectedProvider === "openrouter") {
+      const modelOption = providerModels.openrouter.find(
+        (m) => m.id === modelId
+      );
+      if (modelOption) return modelOption.name;
+
+      // If it's a custom model ID, format it nicely
+      if (modelId.includes("/")) {
+        const [provider, model] = modelId.split("/");
+        return `${
+          provider.charAt(0).toUpperCase() + provider.slice(1)
+        }: ${model}`;
+      }
+    }
+
+    // For other providers, just return the raw model ID
+    return modelId;
+  };
 
   const {
     messages,
@@ -152,7 +176,7 @@ export function ChatArea({
   }, [messages]);
 
   useEffect(() => {
-    if (error && error.status === 429) {
+    if (error && error.cause === 429) {
       // This is a rate limit error
       const resetTime = error.reset ? new Date(error.reset) : new Date();
       resetTime.setHours(0, 0, 0, 0);
@@ -214,193 +238,156 @@ export function ChatArea({
       formRef.current?.requestSubmit();
     }
   };
-
-  // Render API key or subscription prompt if needed
   if (!hasAccess) {
     return (
       <div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8 bg-zinc-900">
-        <div className="w-full max-w-2xl space-y-6 rounded-xl border border-zinc-800 bg-black p-6 shadow-md">
-          {/* Header */}
+        <div className="w-full max-w-xl space-y-6 rounded-xl border border-zinc-800 bg-black p-6 shadow-md">
+          {/* Simplified Header */}
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-red-900/30">
-              <Key className="h-8 w-8 text-red-500" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-900/30">
+              <Key className="h-8 w-8 text-green-500" />
             </div>
-            <h2 className="mb-2 text-2xl font-bold text-white">
-              Access Required
-            </h2>
 
             {user ? (
-              // User is logged in but trying to access a paid model
-              <p className="text-zinc-400">
-                You need additional access to use models from{" "}
-                <span className="font-medium text-white">
-                  {selectedProvider.charAt(0).toUpperCase() +
-                    selectedProvider.slice(1)}
-                </span>
-                .{" "}
-                <Link
-                  to="#"
-                  onClick={() => onProviderChange("meta")}
-                  className="text-green-500 hover:underline"
-                >
-                  Switch to Llama models
-                </Link>{" "}
-                for free access.
-              </p>
+              // For logged-in users
+              <>
+                <h2 className="mb-2 text-xl font-bold text-white">
+                  Choose How to Access AI Models
+                </h2>
+                <p className="text-zinc-400 mb-4">
+                  You're signed in! You have two options to access models from{" "}
+                  <span className="font-medium text-white">
+                    {selectedProvider.charAt(0).toUpperCase() +
+                      selectedProvider.slice(1)}
+                  </span>
+                  :
+                </p>
+              </>
             ) : (
-              // User is not logged in
-              <p className="text-zinc-400">
-                Choose how you want to access AI models from{" "}
-                <span className="font-medium text-white">
-                  {selectedProvider.charAt(0).toUpperCase() +
-                    selectedProvider.slice(1)}
-                </span>
-              </p>
+              // For guests
+              <>
+                <h2 className="mb-2 text-xl font-bold text-white">
+                  Create a Free Account or Add Your API Key
+                </h2>
+                <p className="text-zinc-400 mb-4">
+                  Get started with BRUNO in seconds:
+                </p>
+              </>
             )}
           </div>
 
-          {/* Provider Selection */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="provider-select"
-                className="text-sm font-medium text-zinc-400"
-              >
-                Select AI Provider:
-              </label>
-
-              {/* Add badges to show which providers are free */}
-              <div className="flex gap-2">
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-800/30 text-green-400 border border-green-800/50">
-                  Llama: Free with account
-                </span>
+          {/* Main Options */}
+          <div className="grid gap-4">
+            {/* Free Models Option - For logged-in users */}
+            {user && (
+              <div className="flex flex-col space-y-3 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-medium text-white">Use Free Models</h3>
+                  <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
+                    Recommended
+                  </span>
+                </div>
+                <p className="flex-1 text-sm text-zinc-400">
+                  You have free access to multiple AI models, including Llama,
+                  Gemini, DeepSeek, and Mistral.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    onClick={() => onProviderChange("meta")}
+                    className="bg-green-800 hover:bg-green-700 text-white"
+                  >
+                    Use Llama
+                  </Button>
+                  <Button
+                    onClick={() => onProviderChange("google")}
+                    variant="outline"
+                    className="border-green-800 text-green-400 hover:bg-green-900/30"
+                  >
+                    Use Gemini
+                  </Button>
+                  <Button
+                    onClick={() => onProviderChange("mistral")}
+                    variant="outline"
+                    className="border-green-800 text-green-400 hover:bg-green-900/30"
+                  >
+                    Use Mistral
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
-            <Select onValueChange={onProviderChange} value={selectedProvider}>
-              <SelectTrigger className="w-full bg-zinc-900 border-zinc-700 text-white">
-                <SelectValue placeholder="Provider" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                <SelectGroup>
-                  <SelectItem
-                    value="openai"
-                    className="flex items-center justify-between"
-                  >
-                    <span>OpenAI (ChatGPT)</span>
-                  </SelectItem>
-                  <SelectItem value="anthropic">
-                    <span>Anthropic (Claude)</span>
-                  </SelectItem>
-                  <SelectItem
-                    value="meta"
-                    className="flex items-center justify-between"
-                  >
-                    <span>Meta (Llama)</span>
-                    {user && (
-                      <span className="text-xs ml-2 text-green-500">Free</span>
-                    )}
-                  </SelectItem>
-                  <SelectItem value="google">Google (Gemini)</SelectItem>
-                  <SelectItem value="deepseek">DeepSeek</SelectItem>
-                  <SelectItem value="mistral">Mistral</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Options with divider */}
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-zinc-800" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-black px-2 text-zinc-500">
-                Access Options
-              </span>
-            </div>
-          </div>
-
-          {/* Option Cards */}
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* BYOK Option */}
-            <div className="flex flex-col space-y-2 rounded-lg border border-red-900/30 bg-red-950/20 p-4 transition-colors hover:bg-red-950/30">
+            {/* API Key Option */}
+            <div
+              className={`flex flex-col space-y-3 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4 ${
+                !user ? "mb-2" : ""
+              }`}
+            >
               <div className="flex items-center space-x-2">
-                <h3 className="font-medium text-white">
-                  Use Your Own API Keys
-                </h3>
-                <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
-                  No Limits
-                </span>
+                <h3 className="font-medium text-white">Use Your Own API Key</h3>
+                {!user && (
+                  <span className="rounded-full bg-blue-800/70 px-2 py-0.5 text-xs text-blue-100">
+                    No account needed
+                  </span>
+                )}
               </div>
-              <p className="flex-1 text-xs text-zinc-400">
-                Provide your own API key from{" "}
-                {selectedProvider.charAt(0).toUpperCase() +
-                  selectedProvider.slice(1)}
-                . Your key remains securely stored in your browser.
+              <p className="flex-1 text-sm text-zinc-400">
+                Add your own API key from OpenRouter to access 200+ models from
+                all providers with a single key.
               </p>
+
+              <div className="text-xs bg-zinc-800/50 p-2 rounded border border-zinc-700 text-zinc-300">
+                OpenRouter gives you pay-as-you-go access to models from OpenAI,
+                Anthropic, Google, Meta and others with just one API key.
+              </div>
+
               <Button
                 onClick={onOpenApiKeyModal}
-                className="mt-2 w-full bg-red-900 hover:bg-red-800 text-white border-none"
+                className="bg-zinc-800 hover:bg-zinc-700 text-white"
               >
                 <Key className="mr-2 h-4 w-4" />
                 Add API Key
               </Button>
             </div>
 
-            {/* Premium Option */}
-            <div className="flex flex-col space-y-2 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-medium text-white">Premium Access</h3>
-                <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
-                  All Models
-                </span>
-              </div>
-              <p className="flex-1 text-xs text-zinc-400">
-                Subscribe to our premium plan for seamless access to all AI
-                providers with no need for API keys.
-              </p>
-              <Button
-                onClick={onOpenSubscriptionModal}
-                variant="default"
-                className="mt-2 w-full bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white border-none"
-              >
-                Subscribe to Premium
-              </Button>
-            </div>
-
-            {/* Conditional "Create Account" option - only show if user is not logged in */}
+            {/* Create Account Option - Only for non-logged in users */}
             {!user && (
-              <div className="flex flex-col space-y-2 col-span-2 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+              <div className="flex flex-col space-y-3 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
                 <div className="flex items-center space-x-2">
                   <h3 className="font-medium text-white">
-                    Create a free account
+                    Create a Free Account
                   </h3>
                   <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
-                    Free Access to Llama
+                    Recommended
                   </span>
                 </div>
-                <p className="flex-1 text-xs text-zinc-400">
-                  Create a free account to save your chat history and get access
-                  to Meta's Llama models for free. No credit card required.
+                <p className="flex-1 text-sm text-zinc-400">
+                  Sign up for a free account to access multiple free models and
+                  save your chat history.
                 </p>
-                <Link
-                  to={"/sign-up"}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive mt-2 w-full bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white border-none"
-                >
-                  Create Free Account
-                </Link>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  <Link
+                    to="/sign-up"
+                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white"
+                  >
+                    Create Free Account
+                  </Link>
+                  <Link
+                    to="/sign-in"
+                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-transparent border border-green-800 text-green-400 hover:bg-green-950/30"
+                  >
+                    Sign In
+                  </Link>
+                </div>
               </div>
             )}
           </div>
 
-          {/* Help Text */}
-          <p className="text-center text-xs text-zinc-500">
-            Need help?{" "}
+          {/* Help Link */}
+          <p className="text-center text-xs text-zinc-500 mt-4">
             <Link to="/learn-more" className="text-green-500 hover:underline">
               Learn more
             </Link>{" "}
-            about API keys and subscription options.
+            about API keys and free models.
           </p>
         </div>
       </div>
@@ -516,6 +503,11 @@ export function ChatArea({
               <Info className="h-4 w-4" />
               Error:{" "}
               {error.message || "Something went wrong. Please try again."}
+              {error.cause === 400 && (
+                <span className="ml-2 text-xs text-zinc-500">
+                  Please check your API key and model selection.
+                </span>
+              )}
             </div>
           </div>
         )}
@@ -548,99 +540,161 @@ export function ChatArea({
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Select onValueChange={onProviderChange} value={selectedProvider}>
-              <SelectTrigger className="w-[180px] bg-zinc-900 border-zinc-700 text-white">
+              <SelectTrigger className="h-9 bg-zinc-900 border-zinc-700 text-white">
                 <SelectValue placeholder="Provider" />
               </SelectTrigger>
               <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
                 <SelectGroup>
+                  {user && (
+                    <SelectLabel className="px-2 text-xs text-zinc-500">
+                      Free Models
+                    </SelectLabel>
+                  )}
+                  {user && (
+                    <>
+                      <SelectItem value="meta">
+                        Meta (Llama){" "}
+                        <span className="ml-2 text-xs text-green-500">
+                          Free
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="google">
+                        Google (Gemini){" "}
+                        <span className="ml-2 text-xs text-green-500">
+                          Free
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="deepseek">
+                        DeepSeek{" "}
+                        <span className="ml-2 text-xs text-green-500">
+                          Free
+                        </span>
+                      </SelectItem>
+                      <SelectItem value="mistral">
+                        Mistral{" "}
+                        <span className="ml-2 text-xs text-green-500">
+                          Free
+                        </span>
+                      </SelectItem>
+                      <SelectSeparator className="bg-zinc-700" />
+                      <SelectLabel className="px-2 text-xs text-zinc-500">
+                        API Key Required
+                      </SelectLabel>
+                    </>
+                  )}
                   <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
                   <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="meta">
-                    {" "}
-                    <span>Meta (Llama)</span>
-                    {user && (
-                      <span className="text-xs ml-2 text-green-500">Free</span>
-                    )}
-                  </SelectItem>
-                  <SelectItem value="google">
-                    {" "}
-                    <span>Google (Gemini)</span>
-                    {user && (
-                      <span className="text-xs ml-2 text-green-500">Free</span>
-                    )}
-                  </SelectItem>
-                  <SelectItem value="deepseek">
-                    <span>DeepSeek</span>
-                    {user && (
-                      <span className="text-xs ml-2 text-green-500">Free</span>
-                    )}
-                  </SelectItem>
-                  <SelectItem value="mistral">
-                    <span>Mistral</span>
-                    {user && (
-                      <span className="text-xs ml-2 text-green-500">Free</span>
-                    )}
+                  <SelectItem value="meta">Meta (llama)</SelectItem>
+                  <SelectItem value="google">Google (Gemini)</SelectItem>
+                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+
+                  <SelectItem value="openrouter">
+                    OpenRouter (Multi-Model)
                   </SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
+
             <Select
               value={selectedModel}
-              onValueChange={setSelectedModel}
+              onValueChange={(value) => {
+                if (value === "custom-model-input") {
+                  setShowCustomModelInput(true);
+                } else {
+                  setShowCustomModelInput(false);
+                  setSelectedModel(value);
+                }
+              }}
               disabled={
                 status === "submitted" || !providerModels[selectedProvider]
               }
             >
-              <SelectTrigger className="w-[250px] bg-zinc-900 border-zinc-700 text-white">
+              <SelectTrigger className="h-9 bg-zinc-900 border-zinc-700 text-white">
                 <SelectValue placeholder="Model" />
               </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                <SelectGroup>
-                  {providerModels[
-                    selectedProvider as keyof typeof providerModels
-                  ]?.map((model) => (
-                    <SelectItem key={model.id} value={model.id}>
-                      {model.name} - {model.description}
+              <SelectContent className="max-h-[300px] bg-zinc-900 border-zinc-700 text-white">
+                {providerModels[
+                  selectedProvider as keyof typeof providerModels
+                ]?.map((model) => (
+                  <SelectItem key={model.id} value={model.id}>
+                    {model.name}
+                  </SelectItem>
+                ))}
+                {selectedProvider === "openrouter" && (
+                  <>
+                    <SelectSeparator className="bg-zinc-700" />
+                    <SelectItem
+                      value="custom-model-input"
+                      className="text-green-500"
+                    >
+                      Use custom model ID...
                     </SelectItem>
-                  ))}
-                </SelectGroup>
+                  </>
+                )}
               </SelectContent>
             </Select>
-          </div>
-          <div className="text-xs text-zinc-500">
-            {user?.isSubscribed ? (
-              <span className="flex items-center text-green-500">
-                <div className="mr-1 h-2 w-2 rounded-full bg-green-500"></div>
-                Premium
-              </span>
-            ) : user && ["meta", "google", "deepseek", "mistral"].includes(selectedProvider) ? (
-              <span className="flex items-center text-blue-400">
-                <div className="mr-1 h-2 w-2 rounded-full bg-blue-400 animate-pulse"></div>
-                Free Access
-              </span>
-            ) : (
-              <span className="flex items-center text-red-500">
-                <div className="mr-1 h-2 w-2 rounded-full bg-red-500"></div>
-                Using your API key
-              </span>
-            )}
-          </div>
-          {/* Rate limit info */}
-          {user &&
-            !rateLimitInfo.isLoading &&
-            rateLimitInfo.remaining !== undefined && (
-              <div className="text-xs text-white">
-                {rateLimitInfo.remaining > 0 ? (
-                  <span className="text-white">
-                    {rateLimitInfo.remaining} requests remaining today
-                  </span>
-                ) : (
-                  <span>
-                    Daily limit reached. Resets at {rateLimitInfo.reset}
-                  </span>
-                )}
+
+            {/* Custom model input - simplified */}
+            {showCustomModelInput && selectedProvider === "openrouter" && (
+              <div className="flex gap-2 items-center">
+                <input
+                  type="text"
+                  placeholder="provider/model-id"
+                  value={customModelId}
+                  onChange={(e) => setCustomModelId(e.target.value)}
+                  className="h-9 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
+                />
+                <Button
+                  onClick={() => {
+                    if (customModelId.trim()) {
+                      setSelectedModel(customModelId.trim());
+                      setShowCustomModelInput(false);
+                    }
+                  }}
+                  size="sm"
+                  className="h-9 bg-green-800 hover:bg-green-700 text-white"
+                >
+                  Use
+                </Button>
               </div>
             )}
+          </div>
+
+          {/* Status indicator - simplified */}
+          <div className="flex gap-4 items-center">
+            {/* Model status */}
+            <div className="text-xs">
+              {user?.isSubscribed ? (
+                <span className="flex items-center text-green-500">
+                  <div className="mr-1 h-2 w-2 rounded-full bg-green-500"></div>
+                  Premium
+                </span>
+              ) : user &&
+                ["meta", "google", "deepseek", "mistral"].includes(
+                  selectedProvider
+                ) ? (
+                <span className="flex items-center text-blue-400">
+                  <div className="mr-1 h-2 w-2 rounded-full bg-blue-400"></div>
+                  Free Access
+                </span>
+              ) : (
+                <span className="flex items-center text-amber-500">
+                  <div className="mr-1 h-2 w-2 rounded-full bg-amber-500"></div>
+                  API Key
+                </span>
+              )}
+            </div>
+
+            {/* Rate limit info - simplified */}
+            {user &&
+              !rateLimitInfo.isLoading &&
+              rateLimitInfo.remaining !== undefined &&
+              rateLimitInfo.remaining > 0 && (
+                <div className="text-xs text-zinc-400">
+                  {rateLimitInfo.remaining} remaining
+                </div>
+              )}
+          </div>
         </div>
       </div>
     </div>

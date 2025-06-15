@@ -119,14 +119,14 @@ export default function Layout() {
 
     const savedChats = localStorage.getItem("chat-history");
 
-    if (!savedChats) {
-      return;
-    }
-
     // Load chat history from localStorage
     // Only load if the user is not logged in
     if (!user) {
       try {
+        if (!savedChats) {
+          return;
+        }
+
         const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
           ...chat,
           timestamp: new Date(chat.timestamp),
@@ -138,10 +138,14 @@ export default function Layout() {
         return;
       }
     }
-    // For premium users, we load threads from the user object AND from the localstorage if available
+    // For  users, we load threads from the user object AND from the localstorage if available
     // This is to ensure that if they have chats saved locally, we still show them
 
     if (!user.threads || user.threads.length === 0) {
+      if (!savedChats) {
+        return;
+      }
+
       const parsedChats = JSON.parse(savedChats).map((chat: any) => ({
         ...chat,
         timestamp: new Date(chat.timestamp),
@@ -225,7 +229,7 @@ export default function Layout() {
       );
 
       setChats(updatedChats);
-      if (!user?.isSubscribed) {
+      if (!user) {
         localStorage.setItem("chat-history", JSON.stringify(updatedChats));
         return;
       }
@@ -238,6 +242,7 @@ export default function Layout() {
         messages: messages,
         provider: provider,
         model: model,
+        userApiKey: apiKeys[selectedProvider] || "",
       });
 
       fetcher.submit(payload, {
@@ -262,7 +267,7 @@ export default function Layout() {
       const updatedChats = [newChat, ...chats];
       setChats(updatedChats);
 
-      if (!user?.isSubscribed) {
+      if (!user) {
         localStorage.setItem("chat-history", JSON.stringify(updatedChats));
       } else {
         // For premium users, we need to save the new chat to the database
@@ -274,6 +279,7 @@ export default function Layout() {
           messages: newChat.messages,
           provider: newChat.provider,
           model: newChat.model,
+          userApiKey: apiKeys[selectedProvider] || "",
         });
 
         fetcher.submit(payload, {

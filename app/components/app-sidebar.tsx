@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Settings, Crown, Key } from "lucide-react";
+import { Plus, Search, Settings, Crown, Key, User as UserIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -156,12 +156,17 @@ export function AppSidebar({
         <SidebarMenu>
           <SidebarMenuItem>
             {!user ? (
-              <SidebarMenuButton>
-                <Link to="/sign-up" className="flex items-center gap-2">
-                  <Plus className="h-4 w-4" />
-                  <span className="truncate">Sign Up</span>
-                </Link>
-              </SidebarMenuButton>
+              <Link
+                to="/sign-up"
+                className="block w-full" // Make the link take full width
+              >
+                <SidebarMenuButton className="w-full bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-800 shadow-md">
+                  <div className="flex items-center gap-2 text-white">
+                    <UserIcon className="h-4 w-4" />
+                    <span className="truncate">Sign Up</span>
+                  </div>
+                </SidebarMenuButton>
+              </Link>
             ) : (
               <SidebarMenuButton
                 className={`flex w-full h-full flex-col items-start gap-2 mb-5 rounded-lg p-3 transition-all duration-200 ${

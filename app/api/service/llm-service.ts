@@ -2,6 +2,7 @@ import { streamText, type StreamTextResult, type CoreMessage } from "ai";
 import { prisma } from "@/db.server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 
 // Don't create instances here with fixed API keys
 // We'll create them dynamically based on user status and API keys
@@ -111,6 +112,64 @@ class OpenAIProvider implements LLMProvider {
   }
 }
 
+class OpenRouterProvider implements LLMProvider {
+  name = "openrouter";
+  private apiKey: string;
+  constructor(apiKey: string) {
+    this.apiKey = apiKey;
+  }
+  async sendMessage(
+    chatHistory: CoreMessage[] = [],
+    options?: {
+      llmOptions?: any;
+      userId?: string;
+      threadId?: string;
+      providerName?: string;
+      modelName?: string;
+    }
+  ): Promise<StreamTextResult<any, any> | LLMResponse> {
+    if (!this.apiKey) {
+      return {
+        content: "",
+        provider: this.name,
+        error:
+          "OpenRouter API key not configured. Please provide your own key or subscribe.",
+      };
+    }
+    if (chatHistory.length === 0) {
+      return {
+        content: "",
+        provider: this.name,
+        error: "Cannot send an empty message history to OpenRouter.",
+      };
+    }
+    try {
+      // Default to a common OpenRouter model
+      const modelNameToUse =
+        options?.modelName || "meta-llama/Meta-Llama-3.1-70B-Instruct";
+      // Create instance with the appropriate API key
+      const openRouter = createOpenRouter({
+        apiKey: this.apiKey,
+      });
+      // Get the specific model instance
+      const model = openRouter.chat(modelNameToUse);
+      const result = streamText({
+        model: model,
+        messages: chatHistory,
+        ...options?.llmOptions,
+      });
+      return result;
+    } catch (error: any) {
+      console.error("OpenRouter API Error (streamText):", error);
+      return {
+        content: "",
+        provider: this.name,
+        error: `OpenRouter API Error: ${error.message}`,
+      };
+    }
+  }
+}
+
 class MetaProvider implements LLMProvider {
   name = "meta";
   private apiKey: string;
@@ -164,27 +223,6 @@ class MetaProvider implements LLMProvider {
         model: model,
         messages: chatHistory,
         ...options?.llmOptions,
-        onFinish: async ({ text }) => {
-          if (options?.userId && options?.threadId) {
-            try {
-              await prisma.message.create({
-                data: {
-                  content: text,
-                  role: "assistant",
-                  provider: options.providerName || this.name,
-
-                  threadId: options.threadId,
-                  userId: options.userId,
-                },
-              });
-            } catch (dbError) {
-              console.error(
-                "Failed to save assistant message to DB via onFinish:",
-                dbError
-              );
-            }
-          }
-        },
       });
 
       return result;
@@ -246,26 +284,6 @@ class AnthropicProvider implements LLMProvider {
         model: anthropic(modelNameToUse),
         messages: chatHistory,
         ...options?.llmOptions,
-        onFinish: async ({ text }) => {
-          if (options?.userId && options?.threadId) {
-            try {
-              await prisma.message.create({
-                data: {
-                  content: text,
-                  role: "assistant",
-                  provider: options.providerName || this.name,
-                  threadId: options.threadId,
-                  userId: options.userId,
-                },
-              });
-            } catch (dbError) {
-              console.error(
-                "Failed to save assistant message to DB via onFinish:",
-                dbError
-              );
-            }
-          }
-        },
       });
 
       return result;
@@ -285,16 +303,34 @@ class LLMService {
   private readonly providerApiKeyMap: Record<string, string> = {
     openai: process.env.OPENAI_API_KEY || "",
     meta: process.env.GROQ_API_KEY || "",
+    google: process.env.GROQ_API_KEY || "",
+    deepseek: process.env.GROQ_API_KEY || "",
+    mistral: process.env.GROQ_API_KEY || "",
+    qwen: process.env.GROQ_API_KEY || "",
     anthropic: process.env.ANTHROPIC_API_KEY || "",
   };
 
   // Supported providers and models
-  private readonly supportedProviders = ["openai", "meta", "anthropic", "google", "deepseek", "mistral", "qwen"];
+  private readonly supportedProviders = [
+    "openai",
+    "meta",
+    "anthropic",
+    "google",
+    "deepseek",
+    "mistral",
+    "qwen",
+    "openrouter",
+  ];
 
   // Default models for each provider if not specified
   private readonly defaultModels: Record<string, string> = {
     openai: "gpt-4o",
     meta: "meta-llama/Meta-Llama-3.1-70B-Instruct",
+    google: "gemma2-9b-it",
+    deepseek: "deepseek-r1-distill-llama-70b",
+    mistral: "mistral-saba-24b",
+    qwen: "qwen-qwq-32b",
+    openrouter: "meta-llama/Meta-Llama-3.1-70B-Instruct",
     anthropic: "claude-3-opus-20240229",
   };
 
@@ -371,6 +407,9 @@ class LLMService {
       case "anthropic":
         providerInstance = new AnthropicProvider(effectiveApiKey);
         break;
+      case "openrouter":
+        providerInstance = new OpenRouterProvider(effectiveApiKey);
+        break;
       default:
         // This should never happen due to the earlier check
         return {
@@ -427,6 +466,32 @@ class LLMService {
           "claude-3-opus-20240229",
           "claude-3-sonnet-20240229",
           "claude-3-haiku-20240307",
+        ];
+      case "openrouter":
+        return [
+          // Popular models grouped by provider
+          // OpenAI
+          "openai/gpt-4o",
+          "openai/gpt-4-turbo",
+          // Anthropic
+          "anthropic/claude-3-opus",
+          "anthropic/claude-3-sonnet",
+          "anthropic/claude-3-haiku",
+          // Meta/Llama
+          "meta-llama/meta-llama-3.1-70b-instruct",
+          "meta-llama/meta-llama-3.1-8b-instruct",
+          // Mistral
+          "mistral/mistral-large",
+          "mistral/mistral-medium",
+          // Google
+          "google/gemini-1.5-pro",
+          "google/gemini-1.5-flash",
+          // Other notable models
+          "perplexity/sonar-small-online",
+          "01-ai/yi-large",
+          "cohere/command-r-plus",
+          // Add a special option for custom model input
+          "custom-model-input",
         ];
       default:
         return [];

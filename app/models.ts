@@ -64,6 +64,38 @@ export const providerModels: Record<string, ModelOption[]> = {
       description: "Fast & affordable",
     },
   ],
+  openrouter: [
+    {
+      id: "openai/gpt-4o",
+      name: "GPT-4o",
+      description: "OpenAI's latest multimodal model",
+    },
+    {
+      id: "anthropic/claude-3-opus",
+      name: "Claude 3 Opus",
+      description: "Anthropic's most powerful model",
+    },
+    {
+      id: "meta-llama/llama-3.3-70b-instruct",
+      name: "Llama 3.1 (70B)",
+      description: "Meta's largest open model",
+    },
+    {
+      id: "mistralai/magistral-small-2506",
+      name: "Mistral Magistral Small",
+      description: "Mistral's flagship model",
+    },
+    {
+      id: "google/gemini-flash-1.5",
+      name: "Gemini 1.5 Flash",
+      description: "Google's advanced multimodal model",
+    },
+    {
+      id: "custom-model-input",
+      name: "Custom Model ID...",
+      description: "Enter any OpenRouter-supported model ID",
+    },
+  ],
 };
 
 // Helper function to get model name from id

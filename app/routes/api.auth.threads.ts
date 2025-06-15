@@ -6,11 +6,9 @@ export async function action({ request }: { request: Request }) {
   const session = await auth.api.getSession(request);
   const user = await getUser(session?.user.id || "");
 
-  // Read custom headers
-  const userApiKey = request.headers.get("x-api-key") || undefined;
 
   const payload = await request.json();
-  const { id, messages, title } = payload || {};
+  const { id, messages, title, userApiKey } = payload || {};
 
   if (!user) {
     return Response.json(
@@ -19,7 +17,7 @@ export async function action({ request }: { request: Request }) {
     );
   }
   if (!userApiKey) {
-    if (!user.isSubscribed) {
+    if (!user) {
       return Response.json(
         { error: "Active subscription required or provide your own API key." },
         { status: 403 }
