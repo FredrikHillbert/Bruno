@@ -97,22 +97,23 @@ export function ApiKeyModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl bg-black text-white">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Key className="h-5 w-5" />
             API Keys Management
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm text-zinc-400">
             Add your API keys to access different AI providers. Keys are stored
             locally and never sent to our servers.
           </DialogDescription>
         </DialogHeader>
 
-        <Alert className="bg-green-950/20 border border-green-800/50 text-green-400">
-          <AlertDescription>
-            <strong>Recommended: OpenRouter</strong> - Use a single API key to access 200+ AI models 
-            from OpenAI, Anthropic, Meta, Google, and more with a simple pay-as-you-go model.
+        <Alert className="bg-green-950/20 border border-green-800/50 ">
+          <AlertDescription className="text-white">
+            <strong>Recommended: OpenRouter</strong> - Use a single API key to
+            access 200+ AI models from OpenAI, Anthropic, Meta, Google, and more
+            with a simple pay-as-you-go model.
           </AlertDescription>
         </Alert>
 
@@ -120,7 +121,10 @@ export function ApiKeyModal({
           {/* OpenRouter Section (Always visible) */}
           <div className="space-y-2 border border-zinc-800 rounded-lg p-4 bg-black">
             <div className="flex justify-between items-center">
-              <Label htmlFor="openrouter-key" className="text-lg font-medium text-white">
+              <Label
+                htmlFor="openrouter-key"
+                className="text-lg font-medium text-white"
+              >
                 OpenRouter API Key
               </Label>
               {currentKeys.openrouter && (
@@ -158,18 +162,27 @@ export function ApiKeyModal({
               </Button>
             </div>
             <p className="text-sm text-zinc-400">
-              Access models from OpenAI, Anthropic, Meta, Google, Mistral, and more with a single API key.
+              Access models from OpenAI, Anthropic, Meta, Google, Mistral, and
+              more with a single API key.
             </p>
 
             <div className="mt-4 p-3 rounded-md bg-zinc-800/50 border border-zinc-700">
-              <h4 className="font-medium text-white mb-1">Why use OpenRouter?</h4>
+              <h4 className="font-medium text-white mb-1">
+                Why use OpenRouter?
+              </h4>
               <ul className="text-xs text-zinc-400 list-disc pl-4 space-y-1">
                 <li>Access 200+ models with a single API key</li>
                 <li>Pay-as-you-go pricing with no subscription</li>
-                <li>No rate limits from our platform when using your own key</li>
+                <li>
+                  No rate limits from our platform when using your own key
+                </li>
               </ul>
               <div className="mt-2 text-sm">
-                <Button variant="link" className="p-0 h-auto text-green-500" asChild>
+                <Button
+                  variant="link"
+                  className="p-0 h-auto text-green-500"
+                  asChild
+                >
                   <a
                     href="https://openrouter.ai/keys"
                     target="_blank"
@@ -188,13 +201,15 @@ export function ApiKeyModal({
                 disabled={!apiKeys.openrouter?.trim()}
                 className="flex-1 bg-green-800 hover:bg-green-700 text-white"
               >
-                {currentKeys.openrouter ? "Update OpenRouter Key" : "Save OpenRouter Key"}
+                {currentKeys.openrouter
+                  ? "Update OpenRouter Key"
+                  : "Save OpenRouter Key"}
               </Button>
               {currentKeys.openrouter && (
                 <Button
                   variant="outline"
                   onClick={() => handleRemove("openrouter")}
-                  className="border-red-900/30 text-red-400 hover:bg-red-950/30"
+                  className="border-red-900/30 text-red-400 hover:bg-red-100 hover:text-red-600"
                 >
                   Remove
                 </Button>
@@ -211,9 +226,11 @@ export function ApiKeyModal({
             <CollapsibleTrigger asChild>
               <Button
                 variant="ghost"
-                className="flex w-full justify-between p-4 rounded-lg hover:bg-zinc-800/50"
+                className="flex w-full justify-between p-4 rounded-lg hover:bg-gray-200"
               >
-                <span className="text-sm font-medium">Advanced: Direct Provider Keys</span>
+                <span className="text-sm font-medium">
+                  Advanced: Direct Provider Keys
+                </span>
                 <ChevronDown
                   className={`h-4 w-4 transition-transform ${
                     showAdvancedOptions ? "rotate-180" : ""
@@ -223,10 +240,11 @@ export function ApiKeyModal({
             </CollapsibleTrigger>
             <CollapsibleContent className="px-4 pb-4">
               <p className="text-xs text-zinc-500 mb-4">
-                You can also use API keys directly from specific providers. This is only recommended
-                if you already have existing keys or specific needs.
+                You can also use API keys directly from specific providers. This
+                is only recommended if you already have existing keys or
+                specific needs.
               </p>
-              
+
               <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-5">
                   {providers.map((provider) => (
@@ -283,7 +301,11 @@ export function ApiKeyModal({
                       </p>
                       <div className="text-sm text-muted-foreground">
                         <p>
-                          <Button variant="link" className="p-0 h-auto text-green-500" asChild>
+                          <Button
+                            variant="link"
+                            className="p-0 h-auto text-green-500"
+                            asChild
+                          >
                             <a
                               href={provider.url}
                               target="_blank"

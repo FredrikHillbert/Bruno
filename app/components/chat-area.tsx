@@ -56,7 +56,7 @@ export function ChatArea({
     if (initialSelectedModel) return initialSelectedModel;
     const models =
       providerModels[selectedProvider as keyof typeof providerModels] || [];
-    return models.length > 0 ? models[0].id : "gpt-4o";
+    return models.length > 0 ? models[0].id : "";
   });
 
   const [showRecommendations, setShowRecommendations] = useState(false);
@@ -91,27 +91,16 @@ export function ChatArea({
     return false;
   }, [user, selectedProvider, apiKeys]);
 
-  const getDisplayModelName = (modelId: string): string => {
-    // If it's a standard model from our list, return its friendly name
-    if (selectedProvider === "openrouter") {
-      const modelOption = providerModels.openrouter.find(
-        (m) => m.id === modelId
-      );
-      if (modelOption) return modelOption.name;
-
-      // If it's a custom model ID, format it nicely
-      if (modelId.includes("/")) {
-        const [provider, model] = modelId.split("/");
-        return `${
-          provider.charAt(0).toUpperCase() + provider.slice(1)
-        }: ${model}`;
-      }
+  useEffect(() => {
+    const models =
+      providerModels[selectedProvider as keyof typeof providerModels] || [];
+    if (
+      models.length > 0 &&
+      (!selectedModel || !models.some((m) => m.id === selectedModel))
+    ) {
+      setSelectedModel(models[0].id);
     }
-
-    // For other providers, just return the raw model ID
-    return modelId;
-  };
-
+  }, [selectedProvider, selectedModel]);
   const {
     messages,
     input,
@@ -239,76 +228,155 @@ export function ChatArea({
     }
   };
   if (!hasAccess) {
+    // Get free providers that the user can access
+    const availableFreeProviders = user
+      ? ["meta", "google", "mistral", "deepseek"]
+      : [];
+
+    // Get providers with API keys
+    const providersWithKeys = Object.keys(apiKeys).filter(
+      (key) => apiKeys[key] && apiKeys[key].trim() !== ""
+    );
+
+    // Get a list of all providers the user can access
+    const accessibleProviders = [
+      ...new Set([...availableFreeProviders, ...providersWithKeys]),
+    ];
+
+    // Determine if there are alternatives to show
+    const hasAlternatives = accessibleProviders.length > 0;
+
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8 bg-zinc-900">
-        <div className="w-full max-w-xl space-y-6 rounded-xl border border-zinc-800 bg-black p-6 shadow-md">
-          {/* Simplified Header */}
+      <div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8 bruno-bg">
+        <div className="w-full max-w-xl space-y-6 rounded-xl bruno-border bruno-card p-6 shadow-md">
+          {/* Header with Alert */}
           <div className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-900/30">
-              <Key className="h-8 w-8 text-green-500" />
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:oklch(var(--bruno-red)/0.1)] dark:bg-[color:oklch(var(--bruno-red)/0.15)]">
+              <Key className="h-8 w-8 text-[color:oklch(var(--bruno-red))]" />
             </div>
 
-            {user ? (
-              // For logged-in users
-              <>
-                <h2 className="mb-2 text-xl font-bold text-white">
-                  Choose How to Access AI Models
-                </h2>
-                <p className="text-zinc-400 mb-4">
-                  You're signed in! You have two options to access models from{" "}
+            <h2 className="mb-2 text-xl font-bold bruno-text-primary">
+              {hasAlternatives
+                ? `Access to ${
+                    selectedProvider.charAt(0).toUpperCase() +
+                    selectedProvider.slice(1)
+                  } Required`
+                : "Access to AI Models"}
+            </h2>
+
+            {hasAlternatives && (
+              <div className="mb-4 p-2 rounded-lg bg-red-900/20 border border-red-700/30">
+                <p className="text-sm text-zinc-300">
+                  You don't currently have access to{" "}
                   <span className="font-medium text-white">
                     {selectedProvider.charAt(0).toUpperCase() +
                       selectedProvider.slice(1)}
                   </span>
-                  :
+                  . Choose another provider or add your API key.
                 </p>
-              </>
+              </div>
+            )}
+
+            {user ? (
+              <p className="bruno-text-secondary mb-4">
+                You're signed in! You have these options to access models:
+              </p>
             ) : (
-              // For guests
-              <>
-                <h2 className="mb-2 text-xl font-bold text-white">
-                  Create a Free Account or Add Your API Key
-                </h2>
-                <p className="text-zinc-400 mb-4">
-                  Get started with BRUNO in seconds:
-                </p>
-              </>
+              <p className="bruno-text-secondary mb-4">
+                Get started with BrunoChat in seconds:
+              </p>
             )}
           </div>
 
           {/* Main Options */}
           <div className="grid gap-4">
-            {/* Free Models Option - For logged-in users */}
-            {user && (
-              <div className="flex flex-col space-y-3 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+            {/* Alternative Providers Section - Only show if there are alternatives */}
+            {hasAlternatives && (
+              <div className="flex flex-col space-y-3 rounded-lg border border-green-700/30 bg-green-900/10 p-4 shadow-sm">
                 <div className="flex items-center space-x-2">
-                  <h3 className="font-medium text-white">Use Free Models</h3>
-                  <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
+                  <h3 className="font-medium text-white">
+                    Available Providers
+                  </h3>
+                  <span className="rounded-full bg-green-700 px-2 py-0.5 text-xs text-white">
                     Recommended
                   </span>
                 </div>
                 <p className="flex-1 text-sm text-zinc-400">
+                  Switch to one of these providers that you already have access
+                  to:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {availableFreeProviders.includes("meta") && (
+                    <Button
+                      onClick={() => onProviderChange("meta")}
+                      className="bg-green-700 hover:bg-green-600 text-white"
+                    >
+                      Use Llama
+                    </Button>
+                  )}
+                  {availableFreeProviders.includes("google") && (
+                    <Button
+                      onClick={() => onProviderChange("google")}
+                      variant="outline"
+                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
+                    >
+                      Use Gemini
+                    </Button>
+                  )}
+                  {availableFreeProviders.includes("mistral") && (
+                    <Button
+                      onClick={() => onProviderChange("mistral")}
+                      variant="outline"
+                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
+                    >
+                      Use Mistral
+                    </Button>
+                  )}
+                  {providersWithKeys.includes("openrouter") && (
+                    <Button
+                      onClick={() => onProviderChange("openrouter")}
+                      className="bg-green-700 hover:bg-green-600 text-white"
+                    >
+                      Use OpenRouter
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Free Models Option - For logged-in users */}
+            {user && !availableFreeProviders.includes(selectedProvider) && (
+              <div className="flex flex-col space-y-3 rounded-lg border-green-700/30 bg-green-900/10 p-4 shadow-sm">
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-medium bruno-text-primary">
+                    Use Free Models
+                  </h3>
+                  <span className="rounded-full bg-[color:oklch(var(--bruno-green))] px-2 py-0.5 text-xs text-[color:oklch(var(--primary-foreground))]">
+                    Recommended
+                  </span>
+                </div>
+                <p className="flex-1 text-sm bruno-text-secondary">
                   You have free access to multiple AI models, including Llama,
                   Gemini, DeepSeek, and Mistral.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
                     onClick={() => onProviderChange("meta")}
-                    className="bg-green-800 hover:bg-green-700 text-white"
+                    className="bruno-button-green"
                   >
                     Use Llama
                   </Button>
                   <Button
                     onClick={() => onProviderChange("google")}
                     variant="outline"
-                    className="border-green-800 text-green-400 hover:bg-green-900/30"
+                    className="border-[color:oklch(var(--bruno-green)/0.5)] text-[color:oklch(var(--bruno-green))] hover:bg-[color:oklch(var(--bruno-green)/0.1)]"
                   >
                     Use Gemini
                   </Button>
                   <Button
                     onClick={() => onProviderChange("mistral")}
                     variant="outline"
-                    className="border-green-800 text-green-400 hover:bg-green-900/30"
+                    className="border-[color:oklch(var(--bruno-green)/0.5)] text-[color:oklch(var(--bruno-green))] hover:bg-[color:oklch(var(--bruno-green)/0.1)]"
                   >
                     Use Mistral
                   </Button>
@@ -317,33 +385,28 @@ export function ChatArea({
             )}
 
             {/* API Key Option */}
-            <div
-              className={`flex flex-col space-y-3 rounded-lg border border-zinc-700 bg-zinc-900/50 p-4 ${
-                !user ? "mb-2" : ""
-              }`}
-            >
+            <div className="flex flex-col space-y-3 rounded-lg bruno-border bg-[color:oklch(var(--muted)/0.5)] p-4">
               <div className="flex items-center space-x-2">
-                <h3 className="font-medium text-white">Use Your Own API Key</h3>
+                <h3 className="font-medium bruno-text-primary">
+                  Use Your Own API Key
+                </h3>
                 {!user && (
-                  <span className="rounded-full bg-blue-800/70 px-2 py-0.5 text-xs text-blue-100">
+                  <span className="rounded-full bg-amber-600 px-2 py-0.5 text-xs text-[color:oklch(var(--secondary-foreground))]">
                     No account needed
                   </span>
                 )}
               </div>
-              <p className="flex-1 text-sm text-zinc-400">
+              <p className="flex-1 text-sm bruno-text-secondary">
                 Add your own API key from OpenRouter to access 200+ models from
                 all providers with a single key.
               </p>
 
-              <div className="text-xs bg-zinc-800/50 p-2 rounded border border-zinc-700 text-zinc-300">
+              <div className="text-xs bg-[color:oklch(var(--muted)/0.7)] p-2 rounded bruno-border bruno-text-secondary">
                 OpenRouter gives you pay-as-you-go access to models from OpenAI,
                 Anthropic, Google, Meta and others with just one API key.
               </div>
 
-              <Button
-                onClick={onOpenApiKeyModal}
-                className="bg-zinc-800 hover:bg-zinc-700 text-white"
-              >
+              <Button onClick={onOpenApiKeyModal} className="text-white">
                 <Key className="mr-2 h-4 w-4" />
                 Add API Key
               </Button>
@@ -351,29 +414,26 @@ export function ChatArea({
 
             {/* Create Account Option - Only for non-logged in users */}
             {!user && (
-              <div className="flex flex-col space-y-3 rounded-lg border border-green-800 bg-green-950/20 p-4 shadow-sm">
+              <div className="flex flex-col space-y-3 rounded-lg border border-green-700/30 bg-green-900/10 p-4 shadow-sm">
                 <div className="flex items-center space-x-2">
-                  <h3 className="font-medium text-white">
+                  <h3 className="font-medium bruno-text-primary">
                     Create a Free Account
                   </h3>
-                  <span className="rounded-full bg-green-800 px-2 py-0.5 text-xs text-green-100">
-                    Recommended
-                  </span>
                 </div>
-                <p className="flex-1 text-sm text-zinc-400">
+                <p className="flex-1 text-sm bruno-text-secondary">
                   Sign up for a free account to access multiple free models and
                   save your chat history.
                 </p>
                 <div className="flex flex-wrap gap-2 mt-1">
                   <Link
                     to="/sign-up"
-                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-gradient-to-r from-green-800 to-green-700 hover:from-green-700 hover:to-green-600 text-white"
+                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-gradient-to-r from-green-400 to-green-700"
                   >
                     Create Free Account
                   </Link>
                   <Link
                     to="/sign-in"
-                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-transparent border border-green-800 text-green-400 hover:bg-green-950/30"
+                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-green-500 "
                   >
                     Sign In
                   </Link>
@@ -383,7 +443,7 @@ export function ChatArea({
           </div>
 
           {/* Help Link */}
-          <p className="text-center text-xs text-zinc-500 mt-4">
+          <p className="text-center text-xs mt-4">
             <Link to="/learn-more" className="text-green-500 hover:underline">
               Learn more
             </Link>{" "}
@@ -571,10 +631,7 @@ export function ChatArea({
                         </span>
                       </SelectItem>
                       <SelectItem value="mistral">
-                        Mistral{" "}
-                        <span className="ml-2 text-xs text-green-500">
-                          Free
-                        </span>
+                        Mistral
                       </SelectItem>
                       <SelectSeparator className="bg-zinc-700" />
                       <SelectLabel className="px-2 text-xs text-zinc-500">
@@ -678,7 +735,10 @@ export function ChatArea({
                   Free Access
                 </span>
               ) : (
-                <span className="flex items-center text-amber-500">
+                <span
+                  className="flex items-center cursor-pointer text-amber-500"
+                  onClick={onOpenApiKeyModal}
+                >
                   <div className="mr-1 h-2 w-2 rounded-full bg-amber-500"></div>
                   API Key
                 </span>
@@ -690,7 +750,7 @@ export function ChatArea({
               !rateLimitInfo.isLoading &&
               rateLimitInfo.remaining !== undefined &&
               rateLimitInfo.remaining > 0 && (
-                <div className="text-xs text-zinc-400">
+                <div className="text-xs text-white">
                   {rateLimitInfo.remaining} remaining
                 </div>
               )}

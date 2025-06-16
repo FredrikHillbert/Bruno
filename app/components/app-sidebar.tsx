@@ -3,7 +3,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Search, Settings, Crown, Key, User as UserIcon } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Settings,
+  Crown,
+  Key,
+  User as UserIcon,
+} from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -20,6 +27,7 @@ import {
 } from "@/components/ui/sidebar";
 import { Link } from "react-router";
 import type { User } from "@/routes/layout";
+import { ModeToggle } from "./toggle-mode";
 
 interface Chat {
   id: string;

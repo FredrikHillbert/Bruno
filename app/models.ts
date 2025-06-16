@@ -81,14 +81,14 @@ export const providerModels: Record<string, ModelOption[]> = {
       description: "Meta's largest open model",
     },
     {
-      id: "mistralai/magistral-small-2506",
-      name: "Mistral Magistral Small",
-      description: "Mistral's flagship model",
-    },
-    {
       id: "google/gemini-flash-1.5",
       name: "Gemini 1.5 Flash",
       description: "Google's advanced multimodal model",
+    },
+    {
+      id: "qwen/qwen3-30b-a3b:free",
+      name: "Qwen 3.0 (30B)",
+      description: "Qwen's latest model with advanced capabilities",
     },
     {
       id: "custom-model-input",

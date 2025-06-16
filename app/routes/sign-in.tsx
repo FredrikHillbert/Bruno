@@ -184,16 +184,10 @@ export default function SignUp() {
   return (
     <div className="flex h-screen flex-col items-center justify-center">
       <div className="mx-auto flex w-full flex-col justify-center space-y-6">
-        <h1 className="text-4xl font-extrabold text-center tracking-tight shadow-2xl  mx-auto">
-          <span className="text-green-200 text-5xl">BRUNO</span>
-        </h1>
-
         <div className="flex flex-col space-y-2 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Create an account
-          </h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
           <p className="text-sm text-muted-foreground">
-            Create an account with your Google or Discord account.
+            Login with your Google or Discord account.
           </p>
         </div>
 
@@ -230,167 +224,15 @@ export default function SignUp() {
         )}
 
         <p className="px-8 text-center text-sm text-muted-foreground">
-          Already have an account?{" "}
+          Create an account?{" "}
           <Link
-            to="/sign-in"
+            to="/sign-up"
             className="hover:text-brand text-primary underline underline-offset-4"
           >
-            Sign in
+            Sign up
           </Link>
         </p>
       </div>
     </div>
   );
-}
-
-{
-  /* <div className="grid gap-6">
-          <form onSubmit={handleSubmit(onSubmit)}>
-            <div className="grid gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Full Name
-                </Label>
-                <div className="relative">
-                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="name"
-                    placeholder="John Doe"
-                    className="pl-9"
-                    disabled={isLoading}
-                    {...register("name")}
-                  />
-                </div>
-                {errors.name && (
-                  <p className="text-xs text-destructive">{errors.name.message}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="email" className="text-sm font-medium">
-                  Email
-                </Label>
-                <div className="relative">
-                  <AtSign className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    placeholder="name@example.com"
-                    className="pl-9"
-                    disabled={isLoading}
-                    {...register("email")}
-                  />
-                </div>
-                {errors.email && (
-                  <p className="text-xs text-destructive">{errors.email.message}</p>
-                )}
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="password" className="text-sm font-medium">
-                  Password
-                </Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    className="pl-9 pr-10"
-                    placeholder="Create a password"
-                    disabled={isLoading}
-                    {...register("password")}
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-1 top-1 h-7 w-7"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                    <span className="sr-only">
-                      {showPassword ? "Hide password" : "Show password"}
-                    </span>
-                  </Button>
-                </div>
-                {errors.password && (
-                  <p className="text-xs text-destructive">{errors.password.message}</p>
-                )}
-                <p className="text-xs text-muted-foreground">
-                  Password must be at least 8 characters long.
-                </p>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <input
-                  type="checkbox"
-                  id="acceptTerms"
-                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  {...register("acceptTerms")}
-                />
-                <Label htmlFor="acceptTerms" className="text-xs text-muted-foreground font-normal">
-                  I agree to the{" "}
-                  <Link
-                    to="/terms"
-                    className="text-primary hover:underline underline-offset-4"
-                  >
-                    Terms of Service
-                  </Link>{" "}
-                  and{" "}
-                  <Link
-                    to="/privacy"
-                    className="text-primary hover:underline underline-offset-4"
-                  >
-                    Privacy Policy
-                  </Link>
-                </Label>
-              </div>
-              {errors.acceptTerms && (
-                <p className="text-xs text-destructive mt-1">{errors.acceptTerms.message}</p>
-              )}
-
-              {formStatus.message && (
-                <div
-                  className={`p-3 rounded-md text-sm ${
-                    formStatus.type === "error"
-                      ? "bg-destructive/15 text-destructive"
-                      : "bg-green-500/15 text-green-600 dark:text-green-400"
-                  }`}
-                >
-                  {formStatus.message}
-                </div>
-              )}
-
-              <Button 
-                disabled={isLoading || (!isValid && isDirty)} 
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> 
-                    Creating Account...
-                  </>
-                ) : (
-                  <>
-                    Sign Up <ArrowRight className="ml-2 h-4 w-4" />
-                  </>
-                )}
-              </Button>
-            </div>
-          </form>
-        </div>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-background px-2 text-muted-foreground">
-              Or continue with
-            </span>
-          </div>
-        </div> */
 }
