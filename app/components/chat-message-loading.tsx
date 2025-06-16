@@ -8,7 +8,7 @@ export function ChatMessageLoading() {
           <AvatarFallback className="bg-zinc-800 text-zinc-400">
             AI
           </AvatarFallback>
-          <AvatarImage src="/ai-avatar.png" alt="AI" />
+          <AvatarImage src="" alt="AI" />
         </Avatar>
       </div>
       <div className="flex max-w-[80%] flex-col items-start">

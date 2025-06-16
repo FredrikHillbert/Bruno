@@ -73,6 +73,7 @@ export function AppSidebar({
     }),
   };
 
+
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="border-b border-black/20 bg-gradient-to-b from-black to-zinc-900">
@@ -129,6 +130,58 @@ export function AppSidebar({
             <SidebarGroupContent>
               <SidebarMenu>
                 {groupedChats.today.map((chat) => (
+                  <SidebarMenuItem key={chat.id}>
+                    <SidebarMenuButton
+                      onClick={() => onChatSelect(chat.id)}
+                      isActive={currentChatId === chat.id}
+                      className={`w-full justify-start text-zinc-300 hover:bg-zinc-800 hover:text-white ${
+                        currentChatId === chat.id
+                          ? "bg-red-900/30 text-white border-l-2 border-red-700"
+                          : ""
+                      }`}
+                    >
+                      <span className="truncate">{chat.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {groupedChats.yesterday.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-zinc-400 font-medium text-xs px-3 py-2">
+              Yesterday
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {groupedChats.yesterday.map((chat) => (
+                  <SidebarMenuItem key={chat.id}>
+                    <SidebarMenuButton
+                      onClick={() => onChatSelect(chat.id)}
+                      isActive={currentChatId === chat.id}
+                      className={`w-full justify-start text-zinc-300 hover:bg-zinc-800 hover:text-white ${
+                        currentChatId === chat.id
+                          ? "bg-red-900/30 text-white border-l-2 border-red-700"
+                          : ""
+                      }`}
+                    >
+                      <span className="truncate">{chat.title}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
+        {groupedChats.older.length > 0 && (
+          <SidebarGroup>
+            <SidebarGroupLabel className="text-zinc-400 font-medium text-xs px-3 py-2">
+              Older Chats
+            </SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {groupedChats.older.map((chat) => (
                   <SidebarMenuItem key={chat.id}>
                     <SidebarMenuButton
                       onClick={() => onChatSelect(chat.id)}

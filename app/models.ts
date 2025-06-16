@@ -42,7 +42,7 @@ export const providerModels: Record<string, ModelOption[]> = {
   ],
   google: [
     {
-      id: "gemma2-9b-it	",
+      id: "gemma2-9b-it",
       name: "Gemini 2-9B",
       description: "Efficiency and summarization",
     },

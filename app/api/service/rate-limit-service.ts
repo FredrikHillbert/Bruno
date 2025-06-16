@@ -50,6 +50,8 @@ export const rateLimitService = {
     // Get current usage
     const usage = await this.getUserModelUsage(userId, modelId);
 
+    console.log('uisage:', usage);
+
     // Check if we should reset the counter (new day)
     const resetTime = this.getResetTime(usage.lastReset);
     const needsReset = resetTime <= new Date();

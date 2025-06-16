@@ -3,6 +3,7 @@ import { prisma } from "@/db.server";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { groq } from "@ai-sdk/groq";
 
 // Don't create instances here with fixed API keys
 // We'll create them dynamically based on user status and API keys
@@ -170,7 +171,7 @@ class OpenRouterProvider implements LLMProvider {
   }
 }
 
-class MetaProvider implements LLMProvider {
+class GroqProvider implements LLMProvider {
   name = "meta";
   private apiKey: string;
 
@@ -219,8 +220,10 @@ class MetaProvider implements LLMProvider {
       // Get the specific model instance
       const model = meta.chat(modelNameToUse);
 
-      const result = await streamText({
-        model: model,
+      console.log("Using model:", modelNameToUse);
+
+      const result = streamText({
+        model: groq(modelNameToUse),
         messages: chatHistory,
         ...options?.llmOptions,
       });
@@ -390,19 +393,19 @@ class LLMService {
         providerInstance = new OpenAIProvider(effectiveApiKey);
         break;
       case "meta":
-        providerInstance = new MetaProvider(effectiveApiKey);
+        providerInstance = new GroqProvider(effectiveApiKey);
         break;
       case "google":
-        providerInstance = new MetaProvider(effectiveApiKey);
+        providerInstance = new GroqProvider(effectiveApiKey);
         break;
       case "deepseek":
-        providerInstance = new MetaProvider(effectiveApiKey);
+        providerInstance = new GroqProvider(effectiveApiKey);
         break;
       case "mistral":
-        providerInstance = new MetaProvider(effectiveApiKey);
+        providerInstance = new GroqProvider(effectiveApiKey);
         break;
       case "qwen":
-        providerInstance = new MetaProvider(effectiveApiKey);
+        providerInstance = new GroqProvider(effectiveApiKey);
         break;
       case "anthropic":
         providerInstance = new AnthropicProvider(effectiveApiKey);
@@ -458,7 +461,7 @@ class LLMService {
       case "deepseek":
         return ["deepseek-r1-distill-llama-70b"];
       case "mistral":
-        return ["mistral-saba-24b	"];
+        return ["mistral-saba-24b"];
       case "qwen":
         return ["qwen-qwq-32b"];
       case "anthropic":

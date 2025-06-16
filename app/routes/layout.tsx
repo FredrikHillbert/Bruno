@@ -153,26 +153,10 @@ export default function Layout() {
       setChats(parsedChats);
       return;
     }
-    // Parse threads from the user object
-    const parsedChats = user.threads.map((thread: any) => ({
-      id: thread.id,
-      title: thread.title,
-      timestamp: new Date(thread.messages[0].createdAt),
-      messages: thread.messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        role: msg.role,
-        createdAt: new Date(msg.createdAt),
-      })),
-      provider: "openai", // Default provider for premium users
-      model: "gpt-4", // Default model for premium users
-    }));
 
-    // If the user has threads in localStorage, we can merge them with the fetched threads
-    const localChats = localStorage.getItem("chat-history");
     let threads: Chat[] = [];
-    if (localChats) {
-      threads = JSON.parse(localChats).map((chat: any) => ({
+    if (savedChats) {
+      threads = JSON.parse(savedChats).map((chat: any) => ({
         ...chat,
         timestamp: new Date(chat.timestamp),
       }));
@@ -198,10 +182,11 @@ export default function Layout() {
     const uniqueChats = Array.from(
       new Map(combinedChats.map((chat) => [chat.id, chat])).values()
     );
+
     // Sort by timestamp descending
     uniqueChats.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
     setChats(uniqueChats);
-  }, [user]);
+  }, [user?.id]);
 
   const handleChatSelect = (chatId: string) => {
     navigate(`/chat/${chatId}`);
@@ -228,9 +213,9 @@ export default function Layout() {
           : chat
       );
 
-      setChats(updatedChats);
       if (!user) {
         localStorage.setItem("chat-history", JSON.stringify(updatedChats));
+        setChats(updatedChats);
         return;
       }
       // For premium users, we need to update the thread in the database
@@ -250,6 +235,7 @@ export default function Layout() {
         action: "/api/auth/threads",
         encType: "application/json",
       });
+      setChats(updatedChats);
     }
     // Otherwise create a new chat
     else if (messages.length > 0) {
@@ -265,29 +251,34 @@ export default function Layout() {
       };
 
       const updatedChats = [newChat, ...chats];
-      setChats(updatedChats);
 
       if (!user) {
         localStorage.setItem("chat-history", JSON.stringify(updatedChats));
-      } else {
-        // For premium users, we need to save the new chat to the database
-        fetcher.load("/api/auth/threads"); // Load threads from the API
+        setChats(updatedChats);
 
-        const payload = JSON.stringify({
-          id: newChatId,
-          title: newChat.title,
-          messages: newChat.messages,
-          provider: newChat.provider,
-          model: newChat.model,
-          userApiKey: apiKeys[selectedProvider] || "",
-        });
-
-        fetcher.submit(payload, {
-          method: "post",
-          action: "/api/auth/threads",
-          encType: "application/json",
-        });
+        // Navigate to the new chat
+        navigate(`/chat/${newChatId}`);
+        return;
       }
+      // For users, we need to save the new chat to the database
+      fetcher.load("/api/auth/threads"); // Load threads from the API
+
+      const payload = JSON.stringify({
+        id: newChatId,
+        title: newChat.title,
+        messages: newChat.messages,
+        provider: newChat.provider,
+        model: newChat.model,
+        userApiKey: apiKeys[selectedProvider] || "",
+      });
+
+      fetcher.submit(payload, {
+        method: "post",
+        action: "/api/auth/threads",
+        encType: "application/json",
+      });
+      setChats(updatedChats);
+
       localStorage.setItem("chat-history", JSON.stringify(updatedChats));
 
       // Navigate to the new chat

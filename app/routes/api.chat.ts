@@ -17,7 +17,6 @@ export async function action({ request }: ActionFunctionArgs) {
   const payload = await request.json();
   const { id, messages, model, provider } = payload || {};
 
-  console.log("hej", provider)
 
   // Check if user has access to the requested model
   const hasAccess =
@@ -60,12 +59,12 @@ export async function action({ request }: ActionFunctionArgs) {
     );
 
     if (!rateLimitCheck.allowed) {
-      return new Response(
-        JSON.stringify({
+      return Response.json(
+        {
           error: rateLimitCheck.reason,
           reset: rateLimitCheck.reset,
           cooldownSeconds: rateLimitCheck.cooldownSeconds,
-        }),
+        },
         { status: 429 }
       );
     }
@@ -79,7 +78,6 @@ export async function action({ request }: ActionFunctionArgs) {
         ? { userId: user.id, id, modelName: model }
         : { userId: undefined, id: undefined, modelName: model };
 
-    console.log("hasaccess", hasAccess);
 
     const streamTextResultOrError = await llmService.sendMessageToProvider(
       provider,

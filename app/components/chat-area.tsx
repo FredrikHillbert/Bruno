@@ -5,7 +5,7 @@ import { ChatMessage } from "./chat-message";
 import { ChatMessageLoading } from "./chat-message-loading";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { Info, Key, Loader2, Send } from "lucide-react";
+import { Clock, Info, Key, Loader2, Send } from "lucide-react";
 import { providerModels } from "@/models";
 import { Link } from "react-router";
 import type { User } from "@/routes/layout";
@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "./ui/select";
 import { toast } from "sonner";
+import { Badge } from "./ui/badge";
+import { RateLimitCountdown } from "./rate-limit-countdown";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
@@ -134,7 +136,68 @@ export function ChatArea({
       updateChatHistory(allMessages);
     },
     onError: (error) => {
-      console.error("Chat error:", error);
+      console.error("Chat error:", error.message);
+
+      try {
+        // Try to parse the error message as JSON
+        let errorObj;
+        if (typeof error.message === "string" && error.message.includes("{")) {
+          // Extract the JSON part if it's embedded in a string
+          const jsonMatch = error.message.match(/\{.*\}/);
+          if (jsonMatch) {
+            errorObj = JSON.parse(jsonMatch[0]);
+          } else {
+            // Try parsing the whole message
+            errorObj = JSON.parse(error.message);
+          }
+
+          // Handle rate limit errors specifically
+          if (errorObj.cooldownSeconds) {
+            // For rate limit errors, show a more friendly message with countdown
+            const minutes = Math.floor(errorObj.cooldownSeconds / 60);
+            const seconds = errorObj.cooldownSeconds % 60;
+            const timeDisplay =
+              minutes > 0
+                ? `${minutes} minute${
+                    minutes > 1 ? "s" : ""
+                  } and ${seconds} second${seconds !== 1 ? "s" : ""}`
+                : `${seconds} second${seconds !== 1 ? "s" : ""}`;
+
+            toast.error(
+              <div className="flex flex-col gap-1">
+                <span className="font-medium">Rate limit reached</span>
+                <span className="text-sm">
+                  Please wait {timeDisplay} before trying again
+                </span>
+              </div>,
+              {
+                duration: 6000,
+                icon: (
+                  <Loader2 className="h-4 w-4 animate-spin text-amber-500" />
+                ),
+              }
+            );
+
+            // Set rate limit info to show in the UI
+            setRateLimitInfo({
+              remaining: 0,
+              reset: new Date(
+                Date.now() + errorObj.cooldownSeconds * 1000
+              ).toISOString(),
+              isLoading: false,
+            });
+          } else {
+            // For other JSON errors, display the error message
+            toast.error(errorObj.error || "Something went wrong");
+          }
+        } else {
+          // For non-JSON errors, just show the message
+          toast.error(error.message || "Something went wrong");
+        }
+      } catch (parseError) {
+        // If JSON parsing fails, show the original error
+        toast.error(error.message || "Something went wrong");
+      }
     },
   });
 
@@ -163,39 +226,6 @@ export function ChatArea({
       messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
-
-  useEffect(() => {
-    if (error && error.cause === 429) {
-      // This is a rate limit error
-      const resetTime = error.reset ? new Date(error.reset) : new Date();
-      resetTime.setHours(0, 0, 0, 0);
-      resetTime.setDate(resetTime.getDate() + 1);
-
-      const resetTimeString = resetTime.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-medium">{error.message}</span>
-          {error.cooldownSeconds ? (
-            <span className="text-sm">
-              Try again in {error.cooldownSeconds} seconds
-            </span>
-          ) : (
-            <span className="text-sm">Limit resets at {resetTimeString}</span>
-          )}
-        </div>
-      );
-
-      setRateLimitInfo({
-        remaining: 0,
-        reset: resetTimeString,
-        isLoading: false,
-      });
-    }
-  }, [error]);
 
   // Handle form submission
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -596,7 +626,7 @@ export function ChatArea({
           </Button>
         </form>
 
-        {/* Model Selection */}
+        {/* Provider Selection */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Select onValueChange={onProviderChange} value={selectedProvider}>
@@ -610,40 +640,16 @@ export function ChatArea({
                       Free Models
                     </SelectLabel>
                   )}
-                  {user && (
-                    <>
-                      <SelectItem value="meta">
-                        Meta (Llama){" "}
-                        <span className="ml-2 text-xs text-green-500">
-                          Free
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="google">
-                        Google (Gemini){" "}
-                        <span className="ml-2 text-xs text-green-500">
-                          Free
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="deepseek">
-                        DeepSeek{" "}
-                        <span className="ml-2 text-xs text-green-500">
-                          Free
-                        </span>
-                      </SelectItem>
-                      <SelectItem value="mistral">
-                        Mistral
-                      </SelectItem>
-                      <SelectSeparator className="bg-zinc-700" />
-                      <SelectLabel className="px-2 text-xs text-zinc-500">
-                        API Key Required
-                      </SelectLabel>
-                    </>
-                  )}
+
                   <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
                   <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="meta">Meta (llama)</SelectItem>
+                  <SelectItem value="meta">
+                    Meta (llama) {user && <Badge>Free</Badge>}
+                  </SelectItem>
                   <SelectItem value="google">Google (Gemini)</SelectItem>
-                  <SelectItem value="deepseek">DeepSeek</SelectItem>
+                  <SelectItem value="deepseek">
+                    DeepSeek {user && <Badge>Free</Badge>}
+                  </SelectItem>
 
                   <SelectItem value="openrouter">
                     OpenRouter (Multi-Model)
@@ -744,16 +750,6 @@ export function ChatArea({
                 </span>
               )}
             </div>
-
-            {/* Rate limit info - simplified */}
-            {user &&
-              !rateLimitInfo.isLoading &&
-              rateLimitInfo.remaining !== undefined &&
-              rateLimitInfo.remaining > 0 && (
-                <div className="text-xs text-white">
-                  {rateLimitInfo.remaining} remaining
-                </div>
-              )}
           </div>
         </div>
       </div>
