@@ -5,7 +5,7 @@ import { ChatMessage } from "./chat-message";
 import { ChatMessageLoading } from "./chat-message-loading";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { Clock, Info, Key, Loader2, Send } from "lucide-react";
+import { Info, Key, Loader2, Send } from "lucide-react";
 import { providerModels } from "@/models";
 import { Link } from "react-router";
 import type { User } from "@/routes/layout";
@@ -21,7 +21,9 @@ import {
 } from "./ui/select";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
-import { RateLimitCountdown } from "./rate-limit-countdown";
+import { useDeferredValue } from "react";
+import { MessageList } from "./message-list";
+import { ChatInput } from "./chat-input";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
@@ -65,13 +67,7 @@ export function ChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [rateLimitInfo, setRateLimitInfo] = useState<{
-    remaining?: number;
-    reset?: string;
-    isLoading: boolean;
-  }>({
-    isLoading: false,
-  });
+  const [textAreaInput, setTextAreaInput] = useState("");
   const [customModelId, setCustomModelId] = useState("");
   const [showCustomModelInput, setShowCustomModelInput] = useState(false);
 
@@ -177,15 +173,6 @@ export function ChatArea({
                 ),
               }
             );
-
-            // Set rate limit info to show in the UI
-            setRateLimitInfo({
-              remaining: 0,
-              reset: new Date(
-                Date.now() + errorObj.cooldownSeconds * 1000
-              ).toISOString(),
-              isLoading: false,
-            });
           } else {
             // For other JSON errors, display the error message
             toast.error(errorObj.error || "Something went wrong");
@@ -201,6 +188,20 @@ export function ChatArea({
     },
   });
 
+  // // Scroll to bottom of messages
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  // Set initial messages when they change (e.g., when switching chats)
+  useEffect(() => {
+    if (initialMessages && initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages, setMessages]);
+
   const updateChatHistory = (allMessages: Message[]) => {
     // Create a title from the first user message if available
     let title = "New Chat";
@@ -213,50 +214,8 @@ export function ChatArea({
     onChatUpdate(allMessages, title, selectedProvider, selectedModel);
   };
 
-  // Set initial messages when they change (e.g., when switching chats)
-  useEffect(() => {
-    if (initialMessages && initialMessages.length > 0) {
-      setMessages(initialMessages);
-    }
-  }, [initialMessages, setMessages]);
 
-  // Scroll to bottom of messages
-  useEffect(() => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [messages]);
 
-  // Handle form submission
-  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-
-    handleSubmit(e);
-
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-    }
-  };
-
-  // Handle textarea height adjustment
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    handleInputChange(e);
-
-    // Auto-resize the textarea
-    const textarea = e.target;
-    textarea.style.height = "auto";
-    textarea.style.height = `${textarea.scrollHeight}px`;
-  };
-
-  // Handle key press in textarea
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      formRef.current?.requestSubmit();
-    }
-  };
   if (!hasAccess) {
     // Get free providers that the user can access
     const availableFreeProviders = user
@@ -339,7 +298,8 @@ export function ChatArea({
                   {availableFreeProviders.includes("meta") && (
                     <Button
                       onClick={() => onProviderChange("meta")}
-                      className="bg-green-700 hover:bg-green-600 text-white"
+                      variant="outline"
+                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
                     >
                       Use Llama
                     </Button>
@@ -353,63 +313,25 @@ export function ChatArea({
                       Use Gemini
                     </Button>
                   )}
-                  {availableFreeProviders.includes("mistral") && (
+                  {availableFreeProviders.includes("deepseek") && (
                     <Button
-                      onClick={() => onProviderChange("mistral")}
+                      onClick={() => onProviderChange("deepseek")}
                       variant="outline"
                       className="border-green-700/50 text-green-500 hover:bg-green-900/30"
                     >
-                      Use Mistral
+                      Use DeepSeek
                     </Button>
                   )}
+
                   {providersWithKeys.includes("openrouter") && (
                     <Button
+                      variant="outline"
                       onClick={() => onProviderChange("openrouter")}
-                      className="bg-green-700 hover:bg-green-600 text-white"
+                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
                     >
                       Use OpenRouter
                     </Button>
                   )}
-                </div>
-              </div>
-            )}
-
-            {/* Free Models Option - For logged-in users */}
-            {user && !availableFreeProviders.includes(selectedProvider) && (
-              <div className="flex flex-col space-y-3 rounded-lg border-green-700/30 bg-green-900/10 p-4 shadow-sm">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-medium bruno-text-primary">
-                    Use Free Models
-                  </h3>
-                  <span className="rounded-full bg-[color:oklch(var(--bruno-green))] px-2 py-0.5 text-xs text-[color:oklch(var(--primary-foreground))]">
-                    Recommended
-                  </span>
-                </div>
-                <p className="flex-1 text-sm bruno-text-secondary">
-                  You have free access to multiple AI models, including Llama,
-                  Gemini, DeepSeek, and Mistral.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    onClick={() => onProviderChange("meta")}
-                    className="bruno-button-green"
-                  >
-                    Use Llama
-                  </Button>
-                  <Button
-                    onClick={() => onProviderChange("google")}
-                    variant="outline"
-                    className="border-[color:oklch(var(--bruno-green)/0.5)] text-[color:oklch(var(--bruno-green))] hover:bg-[color:oklch(var(--bruno-green)/0.1)]"
-                  >
-                    Use Gemini
-                  </Button>
-                  <Button
-                    onClick={() => onProviderChange("mistral")}
-                    variant="outline"
-                    className="border-[color:oklch(var(--bruno-green)/0.5)] text-[color:oklch(var(--bruno-green))] hover:bg-[color:oklch(var(--bruno-green)/0.1)]"
-                  >
-                    Use Mistral
-                  </Button>
                 </div>
               </div>
             )}
@@ -572,13 +494,7 @@ export function ChatArea({
           </div>
         ) : (
           <>
-            {messages.map((message, index) => (
-              <ChatMessage
-                key={index}
-                message={message}
-                userImage={user?.image}
-              />
-            ))}
+            <MessageList messages={messages} userImage={user?.image} />
             {status === "submitted" && <ChatMessageLoading />}
             <div ref={messagesEndRef} />
           </>
@@ -602,29 +518,12 @@ export function ChatArea({
           </div>
         )}
 
-        <form onSubmit={handleFormSubmit} ref={formRef} className="relative">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleTextareaChange}
-            onKeyDown={handleKeyDown}
-            placeholder="Type your message..."
-            className="min-h-[60px] w-full resize-none pr-12 bg-zinc-900 border-zinc-700 placeholder:text-zinc-500 text-white focus-visible:ring-green-800"
-            disabled={status === "submitted"}
+          <ChatInput
+            input={input}
+            handleInputChange={handleInputChange}
+            handleSubmit={handleSubmit}
+            status={status}
           />
-          <Button
-            type="submit"
-            size="icon"
-            disabled={status === "submitted" || !input.trim()}
-            className="absolute bottom-2 right-2 bg-green-800 hover:bg-green-700 text-white"
-          >
-            {status === "submitted" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </form>
 
         {/* Provider Selection */}
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
@@ -697,7 +596,7 @@ export function ChatArea({
               </SelectContent>
             </Select>
 
-            {/* Custom model input - simplified */}
+            {/* Custom model input */}
             {showCustomModelInput && selectedProvider === "openrouter" && (
               <div className="flex gap-2 items-center">
                 <input
@@ -723,7 +622,7 @@ export function ChatArea({
             )}
           </div>
 
-          {/* Status indicator - simplified */}
+          {/* Status indicator */}
           <div className="flex gap-4 items-center">
             {/* Model status */}
             <div className="text-xs">
