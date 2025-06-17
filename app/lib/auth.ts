@@ -7,14 +7,14 @@ const prisma = new PrismaClient();
 const isDev = process.env.NODE_ENV !== "production";
 const baseURL = isDev
   ? "http://localhost:5173/api/auth"
-  : "https://wallflower.dev/api/auth";
+  : "https://brunochat.app/api/auth";
 
 export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: "postgresql",
   }),
 
-  trustedOrigins: ["http://localhost:5173", "http://localhost:5173/api/auth"],
+  trustedOrigins: ["http://localhost:5173", "http://localhost:5173/api/auth", "https://brunochat.app/api/auth"],
 
   baseURL: baseURL,
 
