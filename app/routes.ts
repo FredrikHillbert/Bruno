@@ -16,4 +16,5 @@ export default [
   route("/sign-in", "routes/sign-in.tsx"),
   route("/api/auth/*", "routes/api.auth.$.ts"),
   route("/api/auth/threads", "routes/api.auth.threads.ts"),
+  route("/profile/:id", "routes/profile.$id.tsx"),
 ] satisfies RouteConfig;

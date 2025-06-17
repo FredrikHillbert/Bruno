@@ -90,9 +90,8 @@ export default function Layout() {
   const fetcher = useFetcher();
 
   // Load data from localStorage when the component mounts - only if user is not logged in
-  // For logged-in users, this will be replaced with a database call
   // This is to ensure we have a consistent experience for both logged-in and non-logged-in users
-  // Non-premium users will use localStorage, premium users will use a database so that they get synced across devices
+  //  anon will use localStorage,  users will use a database so that they get synced across devices
   useEffect(() => {
     // Load API keys
     try {
@@ -111,7 +110,11 @@ export default function Layout() {
             provider = availableProviders[0];
           }
         }
+
         setSelectedProvider(provider);
+      }
+      if (user) {
+        setSelectedProvider("meta");
       }
     } catch (error) {
       console.error("Failed to load API keys:", error);

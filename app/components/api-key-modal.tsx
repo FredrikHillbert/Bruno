@@ -17,6 +17,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { ScrollArea } from "./ui/scroll-area";
 
 interface ApiKeyModalProps {
   isOpen: boolean;
@@ -96,28 +97,28 @@ export function ApiKeyModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-2xl bg-black text-white">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Key className="h-5 w-5" />
-            API Keys Management
-          </DialogTitle>
-          <DialogDescription className="text-sm text-zinc-400">
-            Add your API keys to access different AI providers. Keys are stored
-            locally and never sent to our servers.
-          </DialogDescription>
-        </DialogHeader>
+    <ScrollArea className="space-y-4 max-h-2/3">
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="sm:max-w-md md:max-w-lg lg:max-w-xl bg-black text-white max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              API Keys Management
+            </DialogTitle>
+            <DialogDescription className="text-sm text-zinc-400">
+              Add your API keys to access different AI providers. Keys are
+              stored locally and never sent to our servers.
+            </DialogDescription>
+          </DialogHeader>
 
-        <Alert className="bg-green-950/20 border border-green-800/50 ">
-          <AlertDescription className="text-white">
-            <strong>Recommended: OpenRouter</strong> - Use a single API key to
-            access 200+ AI models from OpenAI, Anthropic, Meta, Google, and more
-            with a simple pay-as-you-go model.
-          </AlertDescription>
-        </Alert>
+          <Alert className="bg-green-950/20 border border-green-800/50 ">
+            <AlertDescription className="text-white">
+              <strong>Recommended: OpenRouter</strong> - Use a single API key to
+              access 200+ AI models from OpenAI, Anthropic, Meta, Google, and
+              more with a simple pay-as-you-go model.
+            </AlertDescription>
+          </Alert>
 
-        <div className="space-y-4">
           {/* OpenRouter Section (Always visible) */}
           <div className="space-y-2 border border-zinc-800 rounded-lg p-4 bg-black">
             <div className="flex justify-between items-center">
@@ -341,8 +342,8 @@ export function ApiKeyModal({
               </Tabs>
             </CollapsibleContent>
           </Collapsible>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+    </ScrollArea>
   );
 }

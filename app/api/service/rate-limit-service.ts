@@ -5,8 +5,6 @@ import {
   type ModelRateLimit,
 } from "@/lib/rate-limits";
 
-
-
 interface CheckRateLimitResult {
   allowed: boolean;
   reason?: string;
@@ -46,11 +44,11 @@ export const rateLimitService = {
 
     // Estimate token usage for this request
     const estimatedTokens = estimateTokenCount(messageContent);
-
+    console.log("modelId:", modelId, "estimatedTokens:", estimatedTokens);
     // Get current usage
     const usage = await this.getUserModelUsage(userId, modelId);
 
-    console.log('uisage:', usage);
+    console.log("uisage:", usage);
 
     // Check if we should reset the counter (new day)
     const resetTime = this.getResetTime(usage.lastReset);
@@ -67,13 +65,13 @@ export const rateLimitService = {
 
       if (
         cooldownSeconds &&
-        this.isWithinCooldown(usage.lastReset, cooldownSeconds)
+        this.isWithinCooldown(usage, cooldownSeconds)
       ) {
         return {
           allowed: false,
           reason: `Please wait before making another request.`,
           cooldownSeconds: this.getRemainingCooldown(
-            usage.lastReset,
+            usage,
             cooldownSeconds
           ),
         };
@@ -111,15 +109,12 @@ export const rateLimitService = {
       ? limits.subscriberCooldownSeconds
       : limits.freeCooldownSeconds;
 
-    if (
-      cooldownSeconds &&
-      this.isWithinCooldown(usage.lastReset, cooldownSeconds)
-    ) {
+    if (cooldownSeconds && this.isWithinCooldown(usage, cooldownSeconds)) {
       return {
         allowed: false,
         reason: `Please wait before making another request.`,
         cooldownSeconds: this.getRemainingCooldown(
-          usage.lastReset,
+          usage,
           cooldownSeconds
         ),
       };
@@ -138,7 +133,14 @@ export const rateLimitService = {
     tokensUsed: number
   ): Promise<void> {
     if (!userId) return; // No user ID means using API key - don't track
-
+    console.log(
+      "Recording usage for user:",
+      userId,
+      "model:",
+      modelId,
+      "tokens:",
+      tokensUsed
+    );
     try {
       await prisma.userModelUsage.upsert({
         where: {
@@ -169,7 +171,7 @@ export const rateLimitService = {
     userId: string,
     modelId: string
   ): Promise<RateLimitUsage> {
-    const usage = await prisma.userModelUsage.findUnique({
+    let usage = await prisma.userModelUsage.findUnique({
       where: {
         userId_modelId: {
           userId,
@@ -177,6 +179,18 @@ export const rateLimitService = {
         },
       },
     });
+
+    if (!usage) {
+      usage = await prisma.userModelUsage.create({
+        data: {
+          userId,
+          modelId,
+          requestCount: 0,
+          tokensUsed: 0,
+          lastReset: new Date(),
+        },
+      });
+    }
 
     return (
       usage || {
@@ -188,19 +202,35 @@ export const rateLimitService = {
   },
 
   async resetUsage(userId: string, modelId: string): Promise<void> {
-    await prisma.userModelUsage.update({
-      where: {
-        userId_modelId: {
+    try {
+      // Try to update first
+      const updateResult = await prisma.userModelUsage.updateMany({
+        where: {
           userId,
           modelId,
         },
-      },
-      data: {
-        requestCount: 0,
-        tokensUsed: 0,
-        lastReset: new Date(),
-      },
-    });
+        data: {
+          requestCount: 0,
+          tokensUsed: 0,
+          lastReset: new Date(),
+        },
+      });
+
+      // If no records were updated, create a new one
+      if (updateResult.count === 0) {
+        await prisma.userModelUsage.create({
+          data: {
+            userId,
+            modelId,
+            requestCount: 0,
+            tokensUsed: 0,
+            lastReset: new Date(),
+          },
+        });
+      }
+    } catch (error) {
+      console.error(`Failed to reset usage for model ${modelId}:`, error);
+    }
   },
 
   getResetTime(lastReset: Date): Date {
@@ -221,17 +251,28 @@ export const rateLimitService = {
       ? limits.subscriberTokensPerDay
       : limits.freeTokensPerDay;
   },
+  isWithinCooldown(usage: RateLimitUsage, cooldownSeconds: number): boolean {
+    // If no requests have been made yet, don't apply cooldown
+    if (usage.requestCount === 0) {
+      return false;
+    }
 
-  isWithinCooldown(lastRequestTime: Date, cooldownSeconds: number): boolean {
+    // Otherwise, check if we're within the cooldown period
     const cooldownEnds = new Date(
-      lastRequestTime.getTime() + cooldownSeconds * 1000
+      usage.lastReset.getTime() + cooldownSeconds * 1000
     );
     return new Date() < cooldownEnds;
   },
 
-  getRemainingCooldown(lastRequestTime: Date, cooldownSeconds: number): number {
+  // Update the getRemainingCooldown similarly
+  getRemainingCooldown(usage: RateLimitUsage, cooldownSeconds: number): number {
+    // If no requests have been made yet, no cooldown
+    if (usage.requestCount === 0) {
+      return 0;
+    }
+
     const cooldownEnds = new Date(
-      lastRequestTime.getTime() + cooldownSeconds * 1000
+      usage.lastReset.getTime() + cooldownSeconds * 1000
     );
     const remaining = Math.ceil((cooldownEnds.getTime() - Date.now()) / 1000);
     return Math.max(0, remaining);

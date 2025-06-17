@@ -1,29 +1,25 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, createElement } from "react";
 import { type Message } from "ai";
 import { useChat } from "@ai-sdk/react";
-import { ChatMessage } from "./chat-message";
 import { ChatMessageLoading } from "./chat-message-loading";
 import { Button } from "./ui/button";
-import { Textarea } from "./ui/textarea";
-import { Info, Key, Loader2, Send } from "lucide-react";
+import { Info, Loader2, Lock, Zap } from "lucide-react";
 import { providerModels } from "@/models";
-import { Link } from "react-router";
 import type { User } from "@/routes/layout";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from "./ui/select";
 import { toast } from "sonner";
 import { Badge } from "./ui/badge";
-import { useDeferredValue } from "react";
 import { MessageList } from "./message-list";
 import { ChatInput } from "./chat-input";
+import { Brain, Wand2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
+import NoAccessSection from "./no-access-section";
+import {
+  providers,
+  getModelNameFromId,
+  getProviderById,
+  openRouterModelCategories,
+} from "@/models";
 
 interface ChatAreaProps {
   apiKeys: Record<string, string>;
@@ -47,7 +43,6 @@ export function ChatArea({
   apiKeys,
   user,
   onOpenApiKeyModal,
-  onOpenSubscriptionModal,
   chatId,
   initialMessages = [],
   onChatUpdate,
@@ -55,21 +50,50 @@ export function ChatArea({
   onProviderChange,
   selectedModel: initialSelectedModel,
 }: ChatAreaProps) {
-  // Initialize selectedModel with the provided prop or default to the first model for the selected provider
   const [selectedModel, setSelectedModel] = useState(() => {
     if (initialSelectedModel) return initialSelectedModel;
-    const models =
-      providerModels[selectedProvider as keyof typeof providerModels] || [];
-    return models.length > 0 ? models[0].id : "";
+
+    // Get the provider info
+    const provider = getProviderById(selectedProvider);
+    if (provider && provider.models.length > 0) {
+      return provider.models[0].id;
+    }
+    return "";
   });
 
   const [showRecommendations, setShowRecommendations] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const formRef = useRef<HTMLFormElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [textAreaInput, setTextAreaInput] = useState("");
-  const [customModelId, setCustomModelId] = useState("");
-  const [showCustomModelInput, setShowCustomModelInput] = useState(false);
+  const [customModelId, setCustomModelId] = useState<string>("");
+
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const [selectorMode, setSelectorMode] = useState<"provider" | "model">(
+    "provider"
+  );
+  const [selectedProviderTemp, setSelectedProviderTemp] =
+    useState(selectedProvider);
+
+  // Provider access checker
+  const hasProviderAccess = (providerId: string) => {
+    const provider = getProviderById(providerId);
+    if (!provider) return false;
+
+    // User has subscription - can access all providers
+    if (user?.isSubscribed) return true;
+
+    // User has API key for this provider
+    if (apiKeys[providerId]) return true;
+
+    // Free providers are accessible to authenticated users
+    if (user && provider.isFree) return true;
+
+    return false;
+  };
+
+  const getFriendlyModelName = (modelId: string) => {
+    // Use the helper function from models.ts
+    return getModelNameFromId(modelId);
+  };
 
   const hasAccess = useMemo(() => {
     // User has subscription - can access all models
@@ -99,6 +123,7 @@ export function ChatArea({
       setSelectedModel(models[0].id);
     }
   }, [selectedProvider, selectedModel]);
+
   const {
     messages,
     input,
@@ -214,195 +239,12 @@ export function ChatArea({
     onChatUpdate(allMessages, title, selectedProvider, selectedModel);
   };
 
-
-
   if (!hasAccess) {
-    // Get free providers that the user can access
-    const availableFreeProviders = user
-      ? ["meta", "google", "mistral", "deepseek"]
-      : [];
-
-    // Get providers with API keys
-    const providersWithKeys = Object.keys(apiKeys).filter(
-      (key) => apiKeys[key] && apiKeys[key].trim() !== ""
-    );
-
-    // Get a list of all providers the user can access
-    const accessibleProviders = [
-      ...new Set([...availableFreeProviders, ...providersWithKeys]),
-    ];
-
-    // Determine if there are alternatives to show
-    const hasAlternatives = accessibleProviders.length > 0;
-
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center p-4 md:p-8 bruno-bg">
-        <div className="w-full max-w-xl space-y-6 rounded-xl bruno-border bruno-card p-6 shadow-md">
-          {/* Header with Alert */}
-          <div className="text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[color:oklch(var(--bruno-red)/0.1)] dark:bg-[color:oklch(var(--bruno-red)/0.15)]">
-              <Key className="h-8 w-8 text-[color:oklch(var(--bruno-red))]" />
-            </div>
-
-            <h2 className="mb-2 text-xl font-bold bruno-text-primary">
-              {hasAlternatives
-                ? `Access to ${
-                    selectedProvider.charAt(0).toUpperCase() +
-                    selectedProvider.slice(1)
-                  } Required`
-                : "Access to AI Models"}
-            </h2>
-
-            {hasAlternatives && (
-              <div className="mb-4 p-2 rounded-lg bg-red-900/20 border border-red-700/30">
-                <p className="text-sm text-zinc-300">
-                  You don't currently have access to{" "}
-                  <span className="font-medium text-white">
-                    {selectedProvider.charAt(0).toUpperCase() +
-                      selectedProvider.slice(1)}
-                  </span>
-                  . Choose another provider or add your API key.
-                </p>
-              </div>
-            )}
-
-            {user ? (
-              <p className="bruno-text-secondary mb-4">
-                You're signed in! You have these options to access models:
-              </p>
-            ) : (
-              <p className="bruno-text-secondary mb-4">
-                Get started with BrunoChat in seconds:
-              </p>
-            )}
-          </div>
-
-          {/* Main Options */}
-          <div className="grid gap-4">
-            {/* Alternative Providers Section - Only show if there are alternatives */}
-            {hasAlternatives && (
-              <div className="flex flex-col space-y-3 rounded-lg border border-green-700/30 bg-green-900/10 p-4 shadow-sm">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-medium text-white">
-                    Available Providers
-                  </h3>
-                  <span className="rounded-full bg-green-700 px-2 py-0.5 text-xs text-white">
-                    Recommended
-                  </span>
-                </div>
-                <p className="flex-1 text-sm text-zinc-400">
-                  Switch to one of these providers that you already have access
-                  to:
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {availableFreeProviders.includes("meta") && (
-                    <Button
-                      onClick={() => onProviderChange("meta")}
-                      variant="outline"
-                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
-                    >
-                      Use Llama
-                    </Button>
-                  )}
-                  {availableFreeProviders.includes("google") && (
-                    <Button
-                      onClick={() => onProviderChange("google")}
-                      variant="outline"
-                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
-                    >
-                      Use Gemini
-                    </Button>
-                  )}
-                  {availableFreeProviders.includes("deepseek") && (
-                    <Button
-                      onClick={() => onProviderChange("deepseek")}
-                      variant="outline"
-                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
-                    >
-                      Use DeepSeek
-                    </Button>
-                  )}
-
-                  {providersWithKeys.includes("openrouter") && (
-                    <Button
-                      variant="outline"
-                      onClick={() => onProviderChange("openrouter")}
-                      className="border-green-700/50 text-green-500 hover:bg-green-900/30"
-                    >
-                      Use OpenRouter
-                    </Button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* API Key Option */}
-            <div className="flex flex-col space-y-3 rounded-lg bruno-border bg-[color:oklch(var(--muted)/0.5)] p-4">
-              <div className="flex items-center space-x-2">
-                <h3 className="font-medium bruno-text-primary">
-                  Use Your Own API Key
-                </h3>
-                {!user && (
-                  <span className="rounded-full bg-amber-600 px-2 py-0.5 text-xs text-[color:oklch(var(--secondary-foreground))]">
-                    No account needed
-                  </span>
-                )}
-              </div>
-              <p className="flex-1 text-sm bruno-text-secondary">
-                Add your own API key from OpenRouter to access 200+ models from
-                all providers with a single key.
-              </p>
-
-              <div className="text-xs bg-[color:oklch(var(--muted)/0.7)] p-2 rounded bruno-border bruno-text-secondary">
-                OpenRouter gives you pay-as-you-go access to models from OpenAI,
-                Anthropic, Google, Meta and others with just one API key.
-              </div>
-
-              <Button onClick={onOpenApiKeyModal} className="text-white">
-                <Key className="mr-2 h-4 w-4" />
-                Add API Key
-              </Button>
-            </div>
-
-            {/* Create Account Option - Only for non-logged in users */}
-            {!user && (
-              <div className="flex flex-col space-y-3 rounded-lg border border-green-700/30 bg-green-900/10 p-4 shadow-sm">
-                <div className="flex items-center space-x-2">
-                  <h3 className="font-medium bruno-text-primary">
-                    Create a Free Account
-                  </h3>
-                </div>
-                <p className="flex-1 text-sm bruno-text-secondary">
-                  Sign up for a free account to access multiple free models and
-                  save your chat history.
-                </p>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  <Link
-                    to="/sign-up"
-                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-gradient-to-r from-green-400 to-green-700"
-                  >
-                    Create Free Account
-                  </Link>
-                  <Link
-                    to="/sign-in"
-                    className="inline-flex h-10 items-center justify-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-medium transition-all bg-green-500 "
-                  >
-                    Sign In
-                  </Link>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Help Link */}
-          <p className="text-center text-xs mt-4">
-            <Link to="/learn-more" className="text-green-500 hover:underline">
-              Learn more
-            </Link>{" "}
-            about API keys and free models.
-          </p>
-        </div>
-      </div>
+      <NoAccessSection
+        onOpenApiKeyModal={onOpenApiKeyModal}
+        onProviderChange={onProviderChange}
+      />
     );
   }
 
@@ -518,140 +360,435 @@ export function ChatArea({
           </div>
         )}
 
-          <ChatInput
-            input={input}
-            handleInputChange={handleInputChange}
-            handleSubmit={handleSubmit}
-            status={status}
-          />
-
+        <ChatInput
+          input={input}
+          handleInputChange={handleInputChange}
+          handleSubmit={handleSubmit}
+          status={status}
+        />
         {/* Provider Selection */}
-        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Select onValueChange={onProviderChange} value={selectedProvider}>
-              <SelectTrigger className="h-9 bg-zinc-900 border-zinc-700 text-white">
-                <SelectValue placeholder="Provider" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-900 border-zinc-700 text-white">
-                <SelectGroup>
-                  {user && (
-                    <SelectLabel className="px-2 text-xs text-zinc-500">
-                      Free Models
-                    </SelectLabel>
-                  )}
-
-                  <SelectItem value="openai">OpenAI (ChatGPT)</SelectItem>
-                  <SelectItem value="anthropic">Anthropic (Claude)</SelectItem>
-                  <SelectItem value="meta">
-                    Meta (llama) {user && <Badge>Free</Badge>}
-                  </SelectItem>
-                  <SelectItem value="google">Google (Gemini)</SelectItem>
-                  <SelectItem value="deepseek">
-                    DeepSeek {user && <Badge>Free</Badge>}
-                  </SelectItem>
-
-                  <SelectItem value="openrouter">
-                    OpenRouter (Multi-Model)
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedModel}
-              onValueChange={(value) => {
-                if (value === "custom-model-input") {
-                  setShowCustomModelInput(true);
-                } else {
-                  setShowCustomModelInput(false);
-                  setSelectedModel(value);
-                }
+        <div className="mt-2 flex flex-col gap-2">
+          {/* Provider Selection Button */}
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              className="h-9 border-zinc-700 text-white bg-zinc-800 hover:bg-zinc-700 flex items-center gap-2"
+              onClick={() => {
+                setShowModelSelector(true);
+                setSelectorMode("provider");
               }}
-              disabled={
-                status === "submitted" || !providerModels[selectedProvider]
-              }
             >
-              <SelectTrigger className="h-9 bg-zinc-900 border-zinc-700 text-white">
-                <SelectValue placeholder="Model" />
-              </SelectTrigger>
-              <SelectContent className="max-h-[300px] bg-zinc-900 border-zinc-700 text-white">
-                {providerModels[
-                  selectedProvider as keyof typeof providerModels
-                ]?.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    {model.name}
-                  </SelectItem>
-                ))}
-                {selectedProvider === "openrouter" && (
-                  <>
-                    <SelectSeparator className="bg-zinc-700" />
-                    <SelectItem
-                      value="custom-model-input"
-                      className="text-green-500"
-                    >
-                      Use custom model ID...
-                    </SelectItem>
-                  </>
-                )}
-              </SelectContent>
-            </Select>
-
-            {/* Custom model input */}
-            {showCustomModelInput && selectedProvider === "openrouter" && (
-              <div className="flex gap-2 items-center">
-                <input
-                  type="text"
-                  placeholder="provider/model-id"
-                  value={customModelId}
-                  onChange={(e) => setCustomModelId(e.target.value)}
-                  className="h-9 w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white"
-                />
-                <Button
-                  onClick={() => {
-                    if (customModelId.trim()) {
-                      setSelectedModel(customModelId.trim());
-                      setShowCustomModelInput(false);
-                    }
-                  }}
-                  size="sm"
-                  className="h-9 bg-green-800 hover:bg-green-700 text-white"
-                >
-                  Use
-                </Button>
-              </div>
-            )}
-          </div>
-
-          {/* Status indicator */}
-          <div className="flex gap-4 items-center">
-            {/* Model status */}
-            <div className="text-xs">
-              {user?.isSubscribed ? (
-                <span className="flex items-center text-green-500">
-                  <div className="mr-1 h-2 w-2 rounded-full bg-green-500"></div>
-                  Premium
-                </span>
-              ) : user &&
-                ["meta", "google", "deepseek", "mistral"].includes(
-                  selectedProvider
-                ) ? (
-                <span className="flex items-center text-blue-400">
-                  <div className="mr-1 h-2 w-2 rounded-full bg-blue-400"></div>
-                  Free Access
-                </span>
-              ) : (
-                <span
-                  className="flex items-center cursor-pointer text-amber-500"
-                  onClick={onOpenApiKeyModal}
-                >
-                  <div className="mr-1 h-2 w-2 rounded-full bg-amber-500"></div>
-                  API Key
-                </span>
+              {getProviderById(selectedProvider) && (
+                <div className="h-4 w-4 mr-1">
+                  {createElement(getProviderById(selectedProvider)!.icon, {
+                    size: 16,
+                  })}
+                </div>
               )}
-            </div>
+
+              <span className="font-medium">
+                {getProviderById(selectedProvider)?.name || "Select Provider"}
+              </span>
+              <span className="text-zinc-400">/</span>
+              <span>{getFriendlyModelName(selectedModel)}</span>
+              <ArrowRight className="h-4 w-4 ml-1 text-zinc-500" />
+            </Button>
           </div>
         </div>
       </div>
+      {/* Provider/Model Selector Dialog */}
+      <Dialog open={showModelSelector} onOpenChange={setShowModelSelector}>
+        <DialogContent className="sm:max-w-lg md:max-w-xl bg-zinc-900 text-white border-zinc-700">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              {selectorMode === "provider" ? (
+                <>
+                  <Zap className="h-5 w-5 text-blue-400" />
+                  Select AI Provider
+                </>
+              ) : (
+                <>
+                  <Brain className="h-5 w-5 text-green-400" />
+                  Select{" "}
+                  {getProviderById(selectedProviderTemp)?.name.split(" ")[0] ||
+                    selectedProviderTemp}{" "}
+                  Model
+                </>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 mt-4 max-h-[60vh] overflow-y-auto pr-2">
+            {/* Provider Selection */}
+            {selectorMode === "provider" && (
+              <div className="grid grid-cols-1 gap-2">
+                {/* Free Providers - Show to everyone, but disabled for non-authenticated */}
+                <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                  Free AI Providers For Authenticated Users
+                </h3>
+                <div className="space-y-1.5 mb-4">
+                  {providers
+                    .filter((p) => p.isFree)
+                    .map((provider) => (
+                      <Button
+                        key={provider.id}
+                        variant="outline"
+                        className={`w-full justify-between border-zinc-700 text-left p-3 h-auto 
+                        ${
+                          hasProviderAccess(provider.id)
+                            ? "hover:bg-zinc-800"
+                            : "opacity-50"
+                        }`}
+                        onClick={() => {
+                          if (hasProviderAccess(provider.id)) {
+                            setSelectedProviderTemp(provider.id);
+                            setSelectorMode("model");
+                          } else if (!user) {
+                            // Show login prompt for unauthenticated users
+                            toast.error(
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">
+                                  Login required
+                                </span>
+                                <span className="text-sm">
+                                  Create a free account to access these models
+                                </span>
+                              </div>
+                            );
+                          }
+                        }}
+                        disabled={!hasProviderAccess(provider.id)}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`p-2 rounded-full ${
+                              provider.color.split(" ")[0]
+                            }`}
+                          >
+                            {createElement(
+                              getProviderById(selectedProvider)!.icon,
+                              { size: 16 }
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-white flex items-center">
+                              {provider.name}
+                              <Badge className="ml-2 bg-green-800 text-green-300 text-[10px]">
+                                Free
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-zinc-400 mt-1">
+                              {provider.description}
+                            </div>
+                          </div>
+                        </div>
+                        {hasProviderAccess(provider.id) ? (
+                          <ArrowRight className="h-4 w-4 text-zinc-500" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-zinc-500" />
+                        )}
+                      </Button>
+                    ))}
+                </div>
+
+                {/* API Key Providers */}
+                <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                  API Key Required
+                </h3>
+                <div className="space-y-1.5">
+                  {providers
+                    .filter((p) => !p.isFree)
+                    .map((provider) => (
+                      <Button
+                        key={provider.id}
+                        variant="outline"
+                        className={`w-full justify-between border-zinc-700 text-left p-3 h-auto 
+                        ${
+                          hasProviderAccess(provider.id)
+                            ? "hover:bg-zinc-800"
+                            : "opacity-70 hover:bg-zinc-800/50"
+                        }`}
+                        onClick={() => {
+                          if (hasProviderAccess(provider.id)) {
+                            setSelectedProviderTemp(provider.id);
+                            setSelectorMode("model");
+                          }  else {
+                            // Show prompt to add API key for authenticated users
+                            toast.error(
+                              <div className="flex flex-col gap-1">
+                                <span className="font-medium">
+                                  {provider.name} requires an API key
+                                </span>
+                                <span className="text-sm">
+                                  Add your key to access these models
+                                </span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="mt-2 text-xs bg-zinc-800 border-zinc-700 text-white"
+                                  onClick={() => {
+                                    setShowModelSelector(false);
+                                    onOpenApiKeyModal();
+                                  }}
+                                >
+                                  Add API Key
+                                </Button>
+                              </div>
+                            );
+                          }
+                        }}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={`p-2 rounded-full ${
+                              provider.color.split(" ")[0]
+                            }`}
+                          >
+                            {createElement(
+                              getProviderById(selectedProvider)!.icon,
+                              { size: 16 }
+                            )}
+                          </div>
+                          <div>
+                            <div className="font-medium text-white flex items-center">
+                              {provider.name}
+                              {hasProviderAccess(provider.id) ? (
+                                <Badge className="ml-2 bg-blue-800 text-blue-300 text-[10px]">
+                                  API Key Added
+                                </Badge>
+                              ) : (
+                                <Badge className="ml-2 bg-amber-800 text-amber-300 text-[10px]">
+                                  API Key Required
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-xs text-zinc-400 mt-1">
+                              {provider.description}
+                            </div>
+                          </div>
+                        </div>
+
+                        {hasProviderAccess(provider.id) ? (
+                          <ArrowRight className="h-4 w-4 text-zinc-500" />
+                        ) : (
+                          <Lock className="h-4 w-4 text-zinc-500" />
+                        )}
+                      </Button>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Model Selection for OpenRouter */}
+            {selectorMode === "model" &&
+              selectedProviderTemp === "openrouter" && (
+                <div className="grid grid-cols-1 gap-2">
+                  {/* Top-tier models */}
+                  <div className="mb-4">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Top-Tier Models
+                    </h3>
+                    <div className="space-y-1.5">
+                      {getProviderById("openrouter")
+                        ?.models.filter((model) =>
+                          openRouterModelCategories.topTier.includes(model.id)
+                        )
+                        .map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                            onClick={() => {
+                              onProviderChange(selectedProviderTemp);
+                              setSelectedModel(model.id);
+                              setShowModelSelector(false);
+                              toast.success(`Switched to ${model.name}`);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium text-white">
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-zinc-400">
+                                {model.description}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-500" />
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Fast & Efficient */}
+                  <div className="mb-4">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Fast & Efficient Models
+                    </h3>
+                    <div className="space-y-1.5">
+                      {getProviderById("openrouter")
+                        ?.models.filter((model) =>
+                          openRouterModelCategories.fastEfficient.includes(
+                            model.id
+                          )
+                        )
+                        .map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                            onClick={() => {
+                              onProviderChange(selectedProviderTemp);
+                              setSelectedModel(model.id);
+                              setShowModelSelector(false);
+                              toast.success(`Switched to ${model.name}`);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium text-white">
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-zinc-400">
+                                {model.description}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-500" />
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Specialized Models */}
+                  <div className="mb-4">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Specialized Models
+                    </h3>
+                    <div className="space-y-1.5">
+                      {getProviderById("openrouter")
+                        ?.models.filter((model) =>
+                          openRouterModelCategories.specialized.includes(
+                            model.id
+                          )
+                        )
+                        .map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                            onClick={() => {
+                              onProviderChange(selectedProviderTemp);
+                              setSelectedModel(model.id);
+                              setShowModelSelector(false);
+                              toast.success(`Switched to ${model.name}`);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium text-white">
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-zinc-400">
+                                {model.description}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-500" />
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/* Custom Model Input */}
+                  <div className="mt-6 pt-4 border-t border-zinc-800">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Custom Model ID
+                    </h3>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="provider/model-id (e.g., anthropic/claude-3-sonnet)"
+                        value={customModelId || ""}
+                        onChange={(e) => setCustomModelId(e.target.value)}
+                        className="flex-1 h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white"
+                      />
+                      <Button
+                        onClick={() => {
+                          if (customModelId?.trim()) {
+                            onProviderChange(selectedProviderTemp);
+                            setSelectedModel(customModelId.trim());
+                            setShowModelSelector(false);
+                            toast.success(
+                              `Using custom model: ${customModelId}`
+                            );
+                          }
+                        }}
+                        disabled={!customModelId?.trim()}
+                        className="bg-pink-800 hover:bg-pink-700 text-white"
+                      >
+                        Use
+                      </Button>
+                    </div>
+                    <p className="text-xs text-zinc-500 mt-1">
+                      Enter any OpenRouter model ID (e.g.,
+                      "anthropic/claude-3-sonnet")
+                    </p>
+                  </div>
+                </div>
+              )}
+
+            {/* Model Selection for Regular Providers */}
+            {selectorMode === "model" &&
+              selectedProviderTemp !== "openrouter" && (
+                <div className="grid grid-cols-1 gap-2">
+                  <div className="space-y-1.5">
+                    {getProviderById(selectedProviderTemp)?.models.map(
+                      (model) => (
+                        <Button
+                          key={model.id}
+                          variant="outline"
+                          className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                          onClick={() => {
+                            onProviderChange(selectedProviderTemp);
+                            setSelectedModel(model.id);
+                            setShowModelSelector(false);
+                            toast.success(`Switched to ${model.name}`);
+                          }}
+                        >
+                          <div>
+                            <div className="font-medium text-white">
+                              {model.name}
+                            </div>
+                            <div className="text-xs text-zinc-400">
+                              {model.description}
+                            </div>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-zinc-500" />
+                        </Button>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+          </div>
+
+          <div className="flex justify-between mt-4">
+            {selectorMode === "model" && (
+              <Button
+                variant="outline"
+                className="border-zinc-700 text-zinc-400"
+                onClick={() => setSelectorMode("provider")}
+              >
+                Back to Providers
+              </Button>
+            )}
+
+            <Button
+              variant="outline"
+              className="border-zinc-700 text-zinc-400 ml-auto"
+              onClick={() => setShowModelSelector(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

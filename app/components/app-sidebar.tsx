@@ -236,7 +236,7 @@ export function AppSidebar({
                     : "bg-gradient-to-r from-red-950 to-red-900 hover:from-red-900 hover:to-red-800 shadow-md"
                 }`}
               >
-                <Link to="/profile" className="w-full">
+                <Link to={`profile/${user.id}`} className="w-full">
                   <div className="flex items-center gap-3 mb-2">
                     {user.image ? (
                       <img
@@ -272,10 +272,7 @@ export function AppSidebar({
                       </Badge>
                     )}
 
-                    <div className="text-xs text-white/50 hover:text-white transition-colors flex items-center">
-                      Settings
-                      <Settings className="h-3 w-3 ml-1" />
-                    </div>
+                    
                   </div>
                 </Link>
               </SidebarMenuButton>
