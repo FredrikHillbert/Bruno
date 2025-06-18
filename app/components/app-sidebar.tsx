@@ -10,6 +10,7 @@ import {
   Crown,
   Key,
   User as UserIcon,
+  Github,
 } from "lucide-react";
 import {
   Sidebar,
@@ -73,13 +74,12 @@ export function AppSidebar({
     }),
   };
 
-
   return (
     <Sidebar collapsible="offcanvas">
       <SidebarHeader className="border-b border-black/20 bg-gradient-to-b from-black to-zinc-900">
         <div className="flex items-center justify-between p-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-white tracking-wide">BRUNO</span>
+            <span className="tracking-tight text-2xl  bg-gradient-to-r from-green-200 to-green-500 text-transparent bg-clip-text">BRUNO</span>
           </div>
           <div className="flex items-center gap-2">
             {user?.isSubscribed ? (
@@ -214,6 +214,7 @@ export function AppSidebar({
       </SidebarContent>
       <SidebarRail className="bg-black border-r border-zinc-800" />
       <SidebarFooter className="bg-zinc-900">
+       
         <SidebarMenu>
           <SidebarMenuItem>
             {!user ? (
@@ -271,8 +272,6 @@ export function AppSidebar({
                         Free Account
                       </Badge>
                     )}
-
-                    
                   </div>
                 </Link>
               </SidebarMenuButton>
