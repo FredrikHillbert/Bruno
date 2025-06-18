@@ -291,6 +291,25 @@ export function ChatMessage({ message, userImage }: ChatMessageProps) {
           ) : (
             <p>{message.content}</p>
           )}
+
+          {message.role === "user" && message.experimental_attachments && (
+            <div className="mt-2 flex flex-wrap gap-2">
+              {Array.from(message.experimental_attachments)
+                .filter(
+                  (attachment: any) =>
+                    attachment.contentType?.startsWith("image/") ||
+                    (attachment.type && attachment.type.startsWith("image/"))
+                )
+                .map((attachment: any, index) => (
+                  <img
+                    key={`${message.id}-${index}`}
+                    src={attachment.url || URL.createObjectURL(attachment)}
+                    alt={attachment.name}
+                    className="max-h-48 max-w-xs rounded-md border border-zinc-700 object-contain"
+                  />
+                ))}
+            </div>
+          )}
         </div>
 
         {/* Timestamp */}
