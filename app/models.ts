@@ -125,20 +125,15 @@ export const providers: ProviderInfo[] = [
         description: "Google's fast multimodal model",
       },
       {
-        id: "mistral/mistral-small",
-        name: "Mistral Small",
-        description: "Compact but capable model",
+        name: "Gemini 2.0 Flash",
+        id: "google/gemini-2.0-flash-001",
+        description: "Gemini Flash 2.0 offers a significantly faster time to first token (TTFT) compared to the original Gemini Flash 1.5.",
       },
       {
-        id: "perplexity/sonar-small-online",
-        name: "Sonar (Perplexity)",
-        description: "Real-time internet access",
-      },
-      {
-        id: "qwen/qwen3-30b-a3b",
-        name: "Qwen 3.0 (30B)",
-        description: "High performance Chinese-English model",
-      },
+        name: "Grok 3 Beta",
+        id: "x-ai/grok-3-beta",
+        description: "Grok 3 is the latest model from xAI. It's their flagship model that excels at enterprise use cases like data extraction, coding and text summarization.",
+      }
     ],
   },
   {
@@ -230,7 +225,8 @@ export function getProviderById(providerId: string): ProviderInfo | undefined {
 
 // Group OpenRouter models by category for better organization
 export const openRouterModelCategories = {
-  topTier: ["openai/gpt-4o", "anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "meta-llama/llama-3.3-70b-instruct"],
-  fastEfficient: ["anthropic/claude-3-haiku", "google/gemini-flash-1.5", "mistral/mistral-small"],
-  specialized: ["perplexity/sonar-small-online", "qwen/qwen3-30b-a3b", "meta-llama/llama-3.1-8b-instruct"]
-};
+  topTier: ["openai/gpt-4o", "anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "x-ai/grok-3-beta", "meta-llama/llama-3.3-70b-instruct"],
+  fastEfficient: ["anthropic/claude-3-haiku", "google/gemini-flash-1.5", "google/gemini-2.0-flash-001", "meta-llama/llama-3.1-8b-instruct"],
+  budgetFriendly: ["openai/gpt-3.5-turbo", "meta-llama/llama-3.1-8b-instant", "google/gemini-flash-1.5"],
+  creativeWriting: ["anthropic/claude-3-opus", "anthropic/claude-3-sonnet", "meta-llama/llama-3.1-8b-instruct", "x-ai/grok-3-beta"],
+  coding: ["openai/gpt-4o", "anthropic/claude-3-opus", "meta-llama/llama-3.3-70b-instruct"],};

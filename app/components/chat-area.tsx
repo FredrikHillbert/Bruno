@@ -703,17 +703,90 @@ export function ChatArea({
                     </div>
                   </div>
 
-                  {/* Specialized Models */}
+                  {/* Budget Friendly Models */}
                   <div className="mb-4">
                     <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
-                      Specialized Models
+                      Budget Friendly Models
                     </h3>
                     <div className="space-y-1.5">
                       {getProviderById("openrouter")
                         ?.models.filter((model) =>
-                          openRouterModelCategories.specialized.includes(
+                          openRouterModelCategories.budgetFriendly.includes(
                             model.id
                           )
+                        )
+                        .map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                            onClick={() => {
+                              onProviderChange(selectedProviderTemp);
+                              setSelectedModel(model.id);
+                              setShowModelSelector(false);
+                              toast.success(`Switched to ${model.name}`);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium text-white">
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-zinc-400">
+                                {model.description}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-500" />
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+
+                  {/*Creating Writting */}
+                  <div className="mb-4">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Creative Writing Models
+                    </h3>
+                    <div className="space-y-1.5">
+                      {getProviderById("openrouter")
+                        ?.models.filter((model) =>
+                          openRouterModelCategories.creativeWriting.includes(
+                            model.id
+                          )
+                        )
+                        .map((model) => (
+                          <Button
+                            key={model.id}
+                            variant="outline"
+                            className="w-full justify-between border-zinc-700 text-left p-3 h-auto hover:bg-zinc-800"
+                            onClick={() => {
+                              onProviderChange(selectedProviderTemp);
+                              setSelectedModel(model.id);
+                              setShowModelSelector(false);
+                              toast.success(`Switched to ${model.name}`);
+                            }}
+                          >
+                            <div>
+                              <div className="font-medium text-white">
+                                {model.name}
+                              </div>
+                              <div className="text-xs text-zinc-400">
+                                {model.description}
+                              </div>
+                            </div>
+                            <ArrowRight className="h-4 w-4 text-zinc-500" />
+                          </Button>
+                        ))}
+                    </div>
+                  </div>
+                  {/* Coding Models */}
+                  <div className="mb-4">
+                    <h3 className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+                      Coding Models
+                    </h3>
+                    <div className="space-y-1.5">
+                      {getProviderById("openrouter")
+                        ?.models.filter((model) =>
+                          openRouterModelCategories.coding.includes(model.id)
                         )
                         .map((model) => (
                           <Button
